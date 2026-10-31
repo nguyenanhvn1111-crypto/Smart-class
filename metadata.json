@@ -1,0 +1,6 @@
+{
+  "name": "SmartClass - Quản lý Lớp học Thông minh",
+  "description": "Hệ thống quản lý lớp học số toàn diện cho Admin, Giáo viên, Học sinh và Phụ huynh",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

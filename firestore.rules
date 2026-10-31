@@ -1,0 +1,143 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'nguyenanh.vn1111@gmail.com'
+      );
+    }
+
+    // Standalone Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'full_name', 'role', 'is_active']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.email is string && data.email.size() <= 255 &&
+        data.full_name is string && data.full_name.size() <= 200 &&
+        data.role in ['admin', 'teacher', 'student', 'parent'] &&
+        data.is_active is bool;
+    }
+
+    function isValidQuestion(data) {
+      return data.keys().hasAll(['id', 'question_type', 'points']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.question_type in [
+          'single_choice', 'multiple_choice', 'true_false', 'matching',
+          'ordering', 'fill_blank', 'short_answer', 'essay', 'passage'
+        ] &&
+        data.points is number && data.points >= 0 && data.points <= 100 &&
+        (
+          (!('question_text' in data)) ||
+          (data.question_text is string && data.question_text.size() <= 20000)
+        ) &&
+        (
+          (!('content' in data)) ||
+          (data.content is string && data.content.size() <= 20000)
+        ) &&
+        (
+          (!('difficulty' in data)) ||
+          data.difficulty in ['nhan_biet', 'thong_hieu', 'van_dung', 'van_dung_cao']
+        ) &&
+        (
+          (!('status' in data)) ||
+          data.status in ['draft', 'pending_review', 'approved', 'rejected', 'archived']
+        );
+    }
+
+    function isValidQuiz(data) {
+      return data.keys().hasAll(['id', 'title', 'subject_name', 'grade_name', 'duration_minutes', 'total_points', 'status']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.title is string && data.title.size() <= 255 &&
+        data.subject_name is string && data.subject_name.size() <= 100 &&
+        data.grade_name is string && data.grade_name.size() <= 50 &&
+        data.duration_minutes is number && data.duration_minutes > 0 &&
+        data.total_points is number && data.total_points >= 0 &&
+        data.status in ['draft', 'published', 'closed'];
+    }
+
+    // Healthcheck / Connection test document
+    match /test/{connectionDoc} {
+      allow read: if true;
+      allow write: if isSignedIn() || isAdmin();
+    }
+
+    // Student profiles & records
+    match /students/{studentId} {
+      allow read, write: if true;
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Question Bank items
+    match /questions/{questionId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(questionId) && isValidQuestion(incoming());
+      allow update: if isSignedIn() && isValidId(questionId) && isValidQuestion(incoming());
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.author_id == request.auth.uid)
+      );
+    }
+
+    // Quizzes & Assessments
+    match /quizzes/{quizId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(quizId) && isValidQuiz(incoming());
+      allow update: if isSignedIn() && isValidId(quizId) && isValidQuiz(incoming());
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        (resource.data.created_by == request.auth.uid)
+      );
+    }
+
+    // Classes
+    match /classes/{classId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(classId);
+      allow delete: if isAdmin();
+    }
+
+    // Schools
+    match /schools/{schoolId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Admins registry
+    match /admins/{adminId} {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+  }
+}

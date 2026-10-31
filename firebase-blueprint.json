@@ -1,0 +1,186 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "maxLength": 255 },
+        "full_name": { "type": "string", "maxLength": 200 },
+        "role": { "type": "string", "enum": ["admin", "teacher", "student", "parent"] },
+        "avatar_url": { "type": "string", "maxLength": 1000 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "school_id": { "type": "string", "maxLength": 128 },
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "email", "full_name", "role", "is_active", "created_at"]
+    },
+    "School": {
+      "title": "School",
+      "description": "Educational institution information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 255 },
+        "code": { "type": "string", "maxLength": 64 },
+        "address": { "type": "string", "maxLength": 500 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "email": { "type": "string", "format": "email", "maxLength": 255 },
+        "created_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "code", "created_at"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "A smart classroom group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "school_id": { "type": "string", "maxLength": 128 },
+        "academic_year_id": { "type": "string", "maxLength": 128 },
+        "grade_level_id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "room": { "type": "string", "maxLength": 64 },
+        "join_code": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["active", "archived", "completed"] },
+        "homeroom_teacher_id": { "type": "string", "maxLength": 128 },
+        "homeroom_teacher_name": { "type": "string", "maxLength": 200 },
+        "student_count": { "type": "number" },
+        "created_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "school_id", "name", "join_code", "status", "created_at"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Question bank item across 9 formats with Bloom difficulty and approval workflow",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "school_id": { "type": "string", "maxLength": 128 },
+        "subject_name": { "type": "string", "maxLength": 100 },
+        "grade_name": { "type": "string", "maxLength": 50 },
+        "question_type": {
+          "type": "string",
+          "enum": [
+            "single_choice",
+            "multiple_choice",
+            "true_false",
+            "matching",
+            "ordering",
+            "fill_blank",
+            "short_answer",
+            "essay",
+            "passage"
+          ]
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["nhan_biet", "thong_hieu", "van_dung", "van_dung_cao"]
+        },
+        "question_text": { "type": "string", "maxLength": 20000 },
+        "content": { "type": "string", "maxLength": 20000 },
+        "passage_text": { "type": "string", "maxLength": 20000 },
+        "explanation": { "type": "string", "maxLength": 5000 },
+        "points": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "pending_review", "approved", "rejected", "archived"]
+        },
+        "source_type": {
+          "type": "string",
+          "enum": ["teacher_composed", "ai_generated", "imported_file", "exam_archive"]
+        },
+        "author_id": { "type": "string", "maxLength": 128 },
+        "author_name": { "type": "string", "maxLength": 200 },
+        "created_at": { "type": "string", "maxLength": 64 },
+        "updated_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "question_type", "points"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Exam and assessment test assembled from question bank",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 255 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "subject_name": { "type": "string", "maxLength": 100 },
+        "grade_name": { "type": "string", "maxLength": 50 },
+        "duration_minutes": { "type": "number" },
+        "total_points": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "published", "closed"] },
+        "created_by": { "type": "string", "maxLength": 128 },
+        "created_at": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "title", "subject_name", "grade_name", "duration_minutes", "total_points", "status", "created_at"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student school profile and records",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "profile_id": { "type": "string", "maxLength": 128 },
+        "student_code": { "type": "string", "maxLength": 64 },
+        "full_name": { "type": "string", "maxLength": 200 },
+        "email": { "type": "string", "format": "email", "maxLength": 255 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "gender": { "type": "string", "enum": ["male", "female", "other"] },
+        "date_of_birth": { "type": "string", "maxLength": 64 },
+        "address": { "type": "string", "maxLength": 500 },
+        "class_id": { "type": "string", "maxLength": 128 },
+        "class_name": { "type": "string", "maxLength": 120 },
+        "parent_name": { "type": "string", "maxLength": 200 },
+        "parent_phone": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["active", "graduated", "suspended", "transferred"] },
+        "attendance_rate": { "type": "number" },
+        "gpa": { "type": "number" },
+        "behavior_score": { "type": "number" }
+      },
+      "required": ["id", "student_code", "full_name", "class_id", "status"]
+    },
+    "ConnectionTest": {
+      "title": "ConnectionTest",
+      "description": "Firestore connectivity test document",
+      "type": "object",
+      "properties": {
+        "status": { "type": "string", "maxLength": 50 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile records indexed by auth UID"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Student profile documents"
+    },
+    "/schools/{schoolId}": {
+      "schema": "School",
+      "description": "School organizational records"
+    },
+    "/classes/{classId}": {
+      "schema": "Class",
+      "description": "Class documents"
+    },
+    "/questions/{questionId}": {
+      "schema": "Question",
+      "description": "Question bank repository items"
+    },
+    "/quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Quiz and examination papers"
+    },
+    "/test/{connectionDoc}": {
+      "schema": "ConnectionTest",
+      "description": "Healthcheck probe document for validating client-server connectivity"
+    }
+  }
+}
