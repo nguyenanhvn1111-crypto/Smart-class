@@ -32,6 +32,8 @@ import { ToolsHubPage } from '../pages/teacher/ToolsHubPage';
 import { AnnouncementsPage } from '../pages/teacher/AnnouncementsPage';
 import { ReportsPage } from '../pages/teacher/ReportsPage';
 import { ModulesOverviewPage } from '../pages/teacher/ModulesOverviewPage';
+import { TopicManagementPage } from '../pages/teacher/TopicManagementPage';
+import { AssignmentCreateFromBank } from '../pages/teacher/AssignmentCreateFromBank';
 
 // Student
 import { StudentDashboard } from '../pages/student/StudentDashboard';
@@ -44,6 +46,7 @@ import { StudentRewards } from '../pages/student/StudentRewards';
 // Parent
 import { ParentDashboard } from '../pages/parent/ParentDashboard';
 import { ParentMessages } from '../pages/parent/ParentMessages';
+import { ParentAssignments } from '../pages/parent/ParentAssignments';
 
 // Admin
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
@@ -177,7 +180,31 @@ export const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="/teacher/assignments/topics"
+          element={
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <TopicManagementPage />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/teacher/assignments/create-from-bank"
+          element={
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <AssignmentCreateFromBank />
+            </RoleGuard>
+          }
+        />
+        <Route
           path="/teacher/assignments/create"
+          element={
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <AssignmentCreateFromBank />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/teacher/assignments/create-quick"
           element={
             <RoleGuard allowedRoles={['teacher', 'admin']}>
               <AssignmentCreate />
@@ -373,6 +400,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <RoleGuard allowedRoles={['parent', 'admin']}>
               <ParentDashboard />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/parent/assignments"
+          element={
+            <RoleGuard allowedRoles={['parent', 'admin']}>
+              <ParentAssignments />
             </RoleGuard>
           }
         />

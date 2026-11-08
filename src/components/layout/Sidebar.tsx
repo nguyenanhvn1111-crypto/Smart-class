@@ -44,6 +44,7 @@ interface NavItem {
   path: string;
   icon: any;
   badge?: string;
+  children?: NavItem[];
 }
 
 interface ModuleSection {
@@ -78,7 +79,16 @@ const teacherModules: ModuleSection[] = [
     activeColor: 'bg-purple-500/10 border-purple-500/40 text-purple-300',
     items: [
       { label: 'Ngân hàng câu hỏi', path: '/teacher/question-bank', icon: HelpCircle },
-      { label: 'Giao bài tập', path: '/teacher/assignments', icon: FileText },
+      {
+        label: 'Giao bài tập',
+        path: '/teacher/assignments',
+        icon: FileText,
+        children: [
+          { label: 'Quản lý chủ đề', path: '/teacher/assignments/topics', icon: Layers },
+          { label: 'Tạo bài tập', path: '/teacher/assignments/create-from-bank', icon: Sparkles },
+          { label: 'Danh sách bài tập đã giao', path: '/teacher/assignments', icon: FileText }
+        ]
+      },
       { label: 'Chấm bài tự động', path: '/teacher/auto-grading', icon: CheckCircle2 },
       { label: 'Tài liệu số', path: '/teacher/resources', icon: FolderArchive },
       { label: 'AI HỖ TRỢ', path: '/teacher/ai', icon: Sparkles, badge: 'Smart' }
@@ -152,6 +162,7 @@ const parentNav: ModuleSection[] = [
     activeColor: 'bg-purple-500/10 border-purple-500/40 text-purple-300',
     items: [
       { label: 'Hồ sơ học tập', path: '/parent/students', icon: Users },
+      { label: 'Bài tập của con', path: '/parent/assignments', icon: FileText },
       { label: 'Bảng điểm & Nhận xét', path: '/parent/grades', icon: FileSpreadsheet },
       { label: 'Chuyên cần & Điểm danh', path: '/parent/attendance', icon: CalendarCheck },
       { label: 'Lịch học trong tuần', path: '/parent/schedule', icon: CalendarDays }
@@ -239,13 +250,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
     'adm-2': true
   });
 
-  // Automatically keep current module expanded when navigating
+  // Submenu states for items with children (e.g. Giao bài tập)
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
+    '/teacher/assignments': true
+  });
+
+  // Automatically keep current module and submenu expanded when navigating
   useEffect(() => {
     setOpenModules((prev) => {
       let hasChange = false;
       const next = { ...prev };
       currentModules.forEach((mod) => {
-        const isInside = mod.items.some((item) => location.pathname.startsWith(item.path));
+        const isInside = mod.items.some((item) =>
+          location.pathname.startsWith(item.path) ||
+          (item.children && item.children.some((c) => location.pathname.startsWith(c.path)))
+        );
         if (isInside && !prev[mod.id]) {
           next[mod.id] = true;
           hasChange = true;
@@ -253,6 +272,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       });
       return hasChange ? next : prev;
     });
+
+    if (location.pathname.startsWith('/teacher/assignments')) {
+      setOpenSubmenus((prev) => ({ ...prev, '/teacher/assignments': true }));
+    }
   }, [location.pathname, role]);
 
   const toggleModule = (modId: string) => {
@@ -387,6 +410,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className="p-1 pt-0 space-y-0.5 border-t border-slate-800/40">
                     {mod.items.map((item) => {
                       const ItemIcon = item.icon;
+                      const hasChildren = Boolean(item.children && item.children.length > 0);
+                      const isSubOpen = openSubmenus[item.path] ?? false;
+                      const isChildActive = hasChildren && item.children!.some(
+                        (sub) => location.pathname === sub.path || (sub.path === '/teacher/assignments' && location.pathname === '/teacher/assignments')
+                      );
+
+                      if (hasChildren) {
+                        return (
+                          <div key={item.path} className="space-y-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenSubmenus((prev) => ({
+                                  ...prev,
+                                  [item.path]: !prev[item.path]
+                                }));
+                              }}
+                              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                                isChildActive
+                                  ? 'bg-purple-900/40 text-purple-200 border border-purple-500/30'
+                                  : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0">
+                                <ItemIcon className={`w-3.5 h-3.5 shrink-0 ${isChildActive ? 'text-purple-400' : 'opacity-80'}`} />
+                                <span className="truncate">{item.label}</span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  {item.children!.length}
+                                </span>
+                                <ChevronDown
+                                  className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+                                    isSubOpen ? 'rotate-180' : 'rotate-0'
+                                  }`}
+                                />
+                              </div>
+                            </button>
+
+                            {isSubOpen && (
+                              <div className="pl-3 pr-1 py-1 space-y-1 border-l-2 border-purple-500/30 ml-3.5 my-1">
+                                {item.children!.map((sub) => {
+                                  const SubIcon = sub.icon;
+                                  const isSubActive = location.pathname === sub.path;
+
+                                  return (
+                                    <NavLink
+                                      key={sub.path + sub.label}
+                                      to={sub.path}
+                                      onClick={onCloseMobile}
+                                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                        isSubActive
+                                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
+                                          : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <SubIcon className={`w-3 h-3 shrink-0 ${isSubActive ? 'text-white' : 'text-slate-400'}`} />
+                                        <span className="truncate">{sub.label}</span>
+                                      </div>
+                                    </NavLink>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      }
 
                       return (
                         <NavLink

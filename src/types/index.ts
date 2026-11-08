@@ -151,6 +151,40 @@ export interface AttendanceSession {
   records?: AttendanceRecord[];
 }
 
+export interface AssignmentQuestionItem {
+  id: string;
+  question_text: string;
+  type?: 'multiple_choice' | 'single_choice' | 'essay';
+  options?: string[];
+  correct_answer?: string; // 'A', 'B', 'C', 'D' or text
+  explanation?: string;
+  points?: number;
+}
+
+export type TopicStatus = 'draft' | 'ready' | 'archived';
+
+export interface LessonTopic {
+  id: string;
+  class_id: string;
+  class_name: string;
+  subject_id: string;
+  subject_name: string;
+  session_date: string; // YYYY-MM-DD
+  period_number?: number;
+  semester?: 1 | 2;
+  academic_year_id?: string;
+  title: string; // Tối đa 200 ký tự
+  content: string; // Tối đa 8.000 ký tự
+  status: TopicStatus; // draft | ready | archived
+  question_ids: string[]; // Danh sách ID câu hỏi liên kết từ ngân hàng câu hỏi
+  created_by: string;
+  created_by_name?: string;
+  created_at: string;
+  updated_at: string;
+  teacher_notes?: string;
+  attachments?: { name: string; url: string; size?: string; type?: string }[];
+}
+
 export interface Assignment {
   id: string;
   class_id: string;
@@ -161,6 +195,19 @@ export interface Assignment {
   teacher_name?: string;
   title: string;
   description: string;
+  type?: 'homework' | 'exam'; // Bài tập về nhà / Bài kiểm tra
+  topic_ids?: string[]; // Danh sách chủ đề bài học Màn hình 111 được chọn
+  question_selection_mode?: 'random' | 'manual'; // Tự động ngẫu nhiên / Chọn thủ công
+  format_type?: 'both' | 'mcq_only' | 'essay_only'; // (1) Trắc nghiệm và tự luận; (2) Trắc nghiệm; (3) Tự luận
+  mcq_count?: number; // Số câu trắc nghiệm
+  essay_count?: number; // Số câu tự luận
+  difficulty_filter?: 'all' | 'easy' | 'medium' | 'hard' | QuestionDifficulty;
+  duration_minutes?: number; // Thời gian làm bài (phút), 0 = không giới hạn
+  max_attempts?: number; // Số lần làm bài
+  shuffle_questions?: boolean; // Trộn câu hỏi
+  shuffle_options?: boolean; // Trộn đáp án
+  show_answers_mode?: 'after_submit' | 'after_due_date' | 'manual'; // Thời điểm hiện đáp án/nhận xét
+  special_instructions?: string; // Yêu cầu thêm/chỉ dẫn cho giáo viên/học sinh
   attachments?: { name: string; url: string; size?: string }[];
   due_date: string;
   points_max: number;
@@ -170,6 +217,9 @@ export interface Assignment {
   graded_count: number;
   total_students: number;
   created_at: string;
+  total_questions?: number;
+  questions?: AssignmentQuestionItem[];
+  is_from_question_bank?: boolean;
 }
 
 export interface Submission {
@@ -186,6 +236,10 @@ export interface Submission {
   graded_by?: string;
   graded_at?: string;
   status: 'submitted' | 'graded' | 'late' | 'returned';
+  answers?: Record<string, string>;
+  correct_count?: number;
+  wrong_count?: number;
+  unanswered_count?: number;
 }
 
 export interface GradeCategory {

@@ -128,13 +128,15 @@ export const ParentDashboard: React.FC = () => {
           icon={Award}
           color="purple"
         />
-        <StatCard
-          title="Bài tập về nhà"
-          value="2 bài cần làm"
-          subtitle="Hạn nộp đến 08/10"
-          icon={BookOpen}
-          color="amber"
-        />
+        <div onClick={() => navigate('/parent/assignments')} className="cursor-pointer transition-transform hover:scale-[1.02]">
+          <StatCard
+            title="Bài tập về nhà"
+            value="Xem tiến độ bài tập"
+            subtitle="3 tab theo dõi chi tiết &rarr;"
+            icon={BookOpen}
+            color="amber"
+          />
+        </div>
       </div>
 
       {/* Grid: Academic Overview & Announcements */}

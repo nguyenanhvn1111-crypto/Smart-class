@@ -30,7 +30,8 @@ import {
   INITIAL_GRADE_LEVELS,
   INITIAL_ACADEMIC_YEARS,
   INITIAL_SCHOOL,
-  INITIAL_GRADE_CATEGORIES
+  INITIAL_GRADE_CATEGORIES,
+  INITIAL_LESSON_TOPICS
 } from './seedData';
 import {
   ClassModel,
@@ -54,7 +55,8 @@ import {
   GradeLevel,
   AcademicYear,
   School,
-  GradeCategory
+  GradeCategory,
+  LessonTopic
 } from '../types';
 
 // In-memory persistent reactive store
@@ -63,6 +65,7 @@ class DataStore {
   students: Student[] = [...INITIAL_STUDENTS];
   attendanceSessions: AttendanceSession[] = [...INITIAL_ATTENDANCE_SESSIONS];
   assignments: Assignment[] = [...INITIAL_ASSIGNMENTS];
+  lessonTopics: LessonTopic[] = [...INITIAL_LESSON_TOPICS];
   submissions: Submission[] = [...INITIAL_SUBMISSIONS];
   gradeCategories: GradeCategory[] = [...INITIAL_GRADE_CATEGORIES];
   gradeItems: GradeItem[] = [...INITIAL_GRADE_ITEMS];
@@ -461,6 +464,215 @@ export const DataService = {
     return store.attendanceSessions.filter((s) => s.class_id === classId);
   },
 
+  // LESSON TOPICS (MÀN HÌNH 111 - QUẢN LÝ CHỦ ĐỀ MÔN HỌC THEO BUỔI)
+  async getLessonTopics(filter?: {
+    classId?: string;
+    subjectId?: string;
+    status?: string;
+    search?: string;
+    date?: string;
+  }): Promise<LessonTopic[]> {
+    let list = [...store.lessonTopics];
+    if (!filter) return list;
+
+    if (filter.classId && filter.classId !== 'all') {
+      list = list.filter((t) => t.class_id === filter.classId);
+    }
+    if (filter.subjectId && filter.subjectId !== 'all') {
+      list = list.filter((t) => t.subject_id === filter.subjectId);
+    }
+    if (filter.status && filter.status !== 'all') {
+      list = list.filter((t) => t.status === filter.status);
+    }
+    if (filter.date && filter.date.trim()) {
+      list = list.filter((t) => t.session_date === filter.date);
+    }
+    if (filter.search && filter.search.trim()) {
+      const q = filter.search.toLowerCase().trim();
+      list = list.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.content.toLowerCase().includes(q) ||
+          t.subject_name.toLowerCase().includes(q) ||
+          t.class_name.toLowerCase().includes(q)
+      );
+    }
+    // Sắp xếp mới nhất trước
+    return list.sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime());
+  },
+
+  async getLessonTopicById(id: string): Promise<LessonTopic | undefined> {
+    return store.lessonTopics.find((t) => t.id === id);
+  },
+
+  async createLessonTopic(
+    topic: Omit<LessonTopic, 'id' | 'created_at' | 'updated_at'>
+  ): Promise<LessonTopic> {
+    // Backend validation: Tên bắt buộc, tối đa 200 ký tự; Nội dung tối đa 8.000 ký tự
+    if (!topic.title || !topic.title.trim()) {
+      throw new Error('Tên chủ đề là bắt buộc.');
+    }
+    if (topic.title.length > 200) {
+      throw new Error('Tên chủ đề vượt quá giới hạn 200 ký tự.');
+    }
+    if (topic.content && topic.content.length > 8000) {
+      throw new Error('Nội dung chủ đề vượt quá giới hạn 8.000 ký tự.');
+    }
+
+    const cls = store.classes.find((c) => c.id === topic.class_id);
+    const subj = store.subjects.find((s) => s.id === topic.subject_id);
+
+    const newTopic: LessonTopic = {
+      ...topic,
+      id: 'top-' + Math.random().toString(36).substring(2, 9),
+      class_name: cls?.name || topic.class_name || '10A1',
+      subject_name: subj?.name || topic.subject_name || 'Toán Học',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    store.lessonTopics.unshift(newTopic);
+    store.logAudit('CREATE_TOPIC', 'lesson_topics', newTopic.id, `Tạo chủ đề: ${newTopic.title} (${newTopic.class_name})`);
+    store.notify();
+    return newTopic;
+  },
+
+  async updateLessonTopic(id: string, updates: Partial<LessonTopic>): Promise<LessonTopic> {
+    const index = store.lessonTopics.findIndex((t) => t.id === id);
+    if (index === -1) throw new Error('Không tìm thấy chủ đề.');
+
+    if (updates.title && updates.title.length > 200) {
+      throw new Error('Tên chủ đề vượt quá giới hạn 200 ký tự.');
+    }
+    if (updates.content && updates.content.length > 8000) {
+      throw new Error('Nội dung chủ đề vượt quá giới hạn 8.000 ký tự.');
+    }
+
+    store.lessonTopics[index] = {
+      ...store.lessonTopics[index],
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+    store.logAudit('UPDATE_TOPIC', 'lesson_topics', id, `Cập nhật chủ đề: ${store.lessonTopics[index].title}`);
+    store.notify();
+    return store.lessonTopics[index];
+  },
+
+  async deleteLessonTopic(id: string): Promise<{ success: boolean; message?: string }> {
+    const target = store.lessonTopics.find((t) => t.id === id);
+    if (!target) return { success: false, message: 'Chủ đề không tồn tại.' };
+
+    // Kiểm tra xem chủ đề này đã được bài tập nào sử dụng chưa
+    const isUsedByAssignment = store.assignments.some(
+      (a) => a.topic_ids && a.topic_ids.includes(id)
+    );
+
+    if (isUsedByAssignment) {
+      // Chặn xóa trực tiếp hoặc chuyển sang lưu trữ để bảo toàn dữ liệu
+      target.status = 'archived';
+      target.updated_at = new Date().toISOString();
+      store.logAudit('ARCHIVE_TOPIC', 'lesson_topics', id, `Lưu trữ chủ đề đã được dùng trong bài tập: ${target.title}`);
+      store.notify();
+      return {
+        success: false,
+        message: 'Chủ đề đã được bài tập sử dụng nên hệ thống đã tự động chuyển sang trạng thái Lưu trữ (Archived) thay vì xóa hoàn toàn.'
+      };
+    }
+
+    store.lessonTopics = store.lessonTopics.filter((t) => t.id !== id);
+    store.logAudit('DELETE_TOPIC', 'lesson_topics', id, `Xóa chủ đề: ${target.title}`);
+    store.notify();
+    return { success: true };
+  },
+
+  async duplicateLessonTopic(id: string): Promise<LessonTopic> {
+    const src = store.lessonTopics.find((t) => t.id === id);
+    if (!src) throw new Error('Không tìm thấy chủ đề để sao chép.');
+
+    const newTopic: LessonTopic = {
+      ...src,
+      id: 'top-' + Math.random().toString(36).substring(2, 9),
+      title: `${src.title} (Bản sao)`,
+      status: 'draft',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    store.lessonTopics.unshift(newTopic);
+    store.logAudit('DUPLICATE_TOPIC', 'lesson_topics', newTopic.id, `Sao chép chủ đề: ${newTopic.title}`);
+    store.notify();
+    return newTopic;
+  },
+
+  // HÀM TÍNH TOÁN CÂU HỎI ĐỦ ĐIỀU KIỆN CHO CÁC CHỦ ĐỀ ĐƯỢC CHỌN (KHÔNG LẤY TRÙNG)
+  getEligibleQuestionsForTopics(
+    topicIds: string[],
+    filter?: {
+      difficulty?: string;
+      formatType?: 'both' | 'mcq_only' | 'essay_only';
+    }
+  ): {
+    mcqEligible: Question[];
+    essayEligible: Question[];
+    allEligible: Question[];
+  } {
+    if (!topicIds || topicIds.length === 0) {
+      return { mcqEligible: [], essayEligible: [], allEligible: [] };
+    }
+
+    // 1. Gom tất cả question_ids từ các chủ đề đã chọn, loại trừ trùng lặp bằng Set
+    const uniqueQuestionIds = new Set<string>();
+    const selectedTopics = store.lessonTopics.filter((t) => topicIds.includes(t.id));
+
+    selectedTopics.forEach((t) => {
+      (t.question_ids || []).forEach((qid) => uniqueQuestionIds.add(qid));
+    });
+
+    // 2. Lấy danh sách câu hỏi từ ngân hàng câu hỏi
+    const rawQuestions = store.questions.filter((q) => uniqueQuestionIds.has(q.id));
+
+    // 3. Phân loại và lọc câu hỏi ĐỦ ĐIỀU KIỆN
+    // - Loại trừ câu bị archived
+    // - Loại trừ câu không có nội dung text
+    // - Với trắc nghiệm: phải có đáp án đúng (correct_answer)
+    const mcqEligible: Question[] = [];
+    const essayEligible: Question[] = [];
+
+    rawQuestions.forEach((q) => {
+      if (q.status === 'archived') return;
+      if (!q.question_text || !q.question_text.trim()) return;
+
+      // Filter theo độ khó nếu có chỉ định (khác 'all')
+      if (filter?.difficulty && filter.difficulty !== 'all' && q.difficulty !== filter.difficulty) {
+        return;
+      }
+
+      const isEssay = q.question_type === 'essay' || q.question_type === 'short_answer';
+      const isMCQ = !isEssay;
+
+      if (isMCQ) {
+        // Phải có đáp án đúng
+        const hasCorrect =
+          q.correct_answer !== undefined &&
+          q.correct_answer !== null &&
+          q.correct_answer !== '';
+        if (hasCorrect) {
+          mcqEligible.push(q);
+        }
+      } else {
+        essayEligible.push(q);
+      }
+    });
+
+    const allEligible = [...mcqEligible, ...essayEligible];
+
+    return {
+      mcqEligible,
+      essayEligible,
+      allEligible
+    };
+  },
+
   // ASSIGNMENTS
   async getAssignments(classId?: string): Promise<Assignment[]> {
     if (classId) {
@@ -510,12 +722,44 @@ export const DataService = {
     return store.submissions.filter((s) => s.assignment_id === assignmentId);
   },
 
-  async submitAssignment(submission: Omit<Submission, 'id' | 'submitted_at' | 'status'>): Promise<Submission> {
+  async submitAssignment(submission: Omit<Submission, 'id' | 'submitted_at' | 'status'> & Partial<Pick<Submission, 'status' | 'score'>>): Promise<Submission> {
+    const asg = store.assignments.find((a) => a.id === submission.assignment_id);
+    let correctCount = submission.correct_count ?? 0;
+    let wrongCount = submission.wrong_count ?? 0;
+    let unansweredCount = submission.unanswered_count ?? 0;
+    let autoScore = submission.score;
+
+    if (asg && asg.questions && asg.questions.length > 0 && submission.answers) {
+      let correct = 0;
+      let wrong = 0;
+      let unanswered = 0;
+      asg.questions.forEach((q) => {
+        const studentAns = submission.answers?.[q.id];
+        if (!studentAns) {
+          unanswered += 1;
+        } else if (q.correct_answer && studentAns.toUpperCase().startsWith(q.correct_answer.toUpperCase().charAt(0))) {
+          correct += 1;
+        } else {
+          wrong += 1;
+        }
+      });
+      correctCount = correct;
+      wrongCount = wrong;
+      unansweredCount = unanswered;
+      if (autoScore === undefined) {
+        autoScore = Math.round((correct / asg.questions.length) * 10 * 10) / 10;
+      }
+    }
+
     const newSub: Submission = {
       ...submission,
+      score: autoScore ?? submission.score,
+      correct_count: correctCount,
+      wrong_count: wrongCount,
+      unanswered_count: unansweredCount,
       id: 'sub-' + Math.random().toString(36).substring(2, 9),
       submitted_at: new Date().toISOString(),
-      status: 'submitted'
+      status: autoScore !== undefined ? 'graded' : 'submitted'
     };
     const existingIndex = store.submissions.findIndex(
       (s) => s.assignment_id === submission.assignment_id && s.student_id === submission.student_id
@@ -524,7 +768,6 @@ export const DataService = {
       store.submissions[existingIndex] = newSub;
     } else {
       store.submissions.push(newSub);
-      const asg = store.assignments.find((a) => a.id === submission.assignment_id);
       if (asg) asg.submitted_count += 1;
     }
     store.logAudit('SUBMIT_ASSIGNMENT', 'submissions', newSub.id, `Học sinh ${newSub.student_name} nộp bài`);
