@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DataService } from '../../services/dataService';
+import { getVisibleSubmissionForLearner } from '../../services/assignmentManagementService';
 import { Assignment, Submission, Student } from '../../types';
 import { Modal } from '../../components/common/Modal';
 import {
@@ -83,12 +84,16 @@ export const ParentAssignments: React.FC = () => {
     return unsub;
   }, []);
 
-  // Child submissions mapping
+  // Child official/latest submissions mapping
   const childSubmissionsMap = new Map<string, Submission>();
   submissions
     .filter((s) => s.student_id === activeChild.id)
+    .sort((a, b) => (a.attempt_no || 1) - (b.attempt_no || 1))
     .forEach((s) => {
-      childSubmissionsMap.set(s.assignment_id, s);
+      const existing = childSubmissionsMap.get(s.assignment_id);
+      if (!existing || s.is_official || !existing.is_official) {
+        childSubmissionsMap.set(s.assignment_id, s);
+      }
     });
 
   // Completed assignments vs uncompleted assignments
@@ -125,8 +130,13 @@ export const ParentAssignments: React.FC = () => {
     const sub = childSubmissionsMap.get(asg.id);
     if (sub) {
       questionsCompletedCount += qCount;
-      const c = sub.correct_count ?? (sub.score !== undefined ? Math.round((sub.score / 10) * qCount) : qCount);
-      const w = sub.wrong_count ?? Math.max(0, qCount - c);
+      const vis = getVisibleSubmissionForLearner(sub);
+      const c = vis.isPublished
+        ? (sub.correct_count ?? (vis.visibleScore !== undefined ? Math.round((vis.visibleScore / (asg.points_max || 10)) * qCount) : qCount))
+        : 0;
+      const w = vis.isPublished
+        ? (sub.wrong_count ?? Math.max(0, qCount - c))
+        : 0;
       questionsCorrectCount += c;
       questionsWrongCount += w;
 
@@ -311,16 +321,23 @@ export const ParentAssignments: React.FC = () => {
                           </span>
                         </div>
 
-                        {sub.score !== undefined ? (
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 font-extrabold text-xs rounded-xl border border-emerald-200">
-                            <Award className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Điểm: {sub.score} / 10đ</span>
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 bg-amber-50 text-amber-700 font-bold text-xs rounded-xl border border-amber-200">
-                            Đã nộp bài
-                          </span>
-                        )}
+                        {(() => {
+                          const vis = getVisibleSubmissionForLearner(sub);
+                          return vis.isPublished && vis.visibleScore !== undefined ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 font-extrabold text-xs rounded-xl border border-emerald-200">
+                              <Award className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Điểm: {vis.visibleScore} / {asg.points_max || 10}đ</span>
+                            </span>
+                          ) : vis.gradeStatus === 'graded' ? (
+                            <span className="px-2.5 py-1 bg-cyan-50 text-cyan-800 font-bold text-xs rounded-xl border border-cyan-200">
+                              Đã chấm • Chờ công bố
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 bg-amber-50 text-amber-700 font-bold text-xs rounded-xl border border-amber-200">
+                              Đã nộp bài
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       <h3 className="font-extrabold text-slate-900 text-base leading-snug">
@@ -338,7 +355,7 @@ export const ParentAssignments: React.FC = () => {
                             {new Date(sub.submitted_at).toLocaleString('vi-VN')}
                           </span>
                         </div>
-                        {sub.correct_count !== undefined && (
+                        {getVisibleSubmissionForLearner(sub).isPublished && sub.correct_count !== undefined && (
                           <div className="flex justify-between">
                             <span className="text-slate-500">Số câu trả lời đúng:</span>
                             <span className="font-black text-emerald-700">
@@ -348,13 +365,16 @@ export const ParentAssignments: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Teacher's evaluation / feedback */}
-                      {sub.feedback && (
-                        <div className="p-3 bg-blue-50/80 rounded-2xl border border-blue-100 text-xs text-blue-900 space-y-1">
-                          <span className="font-extrabold block text-blue-800">Nhận xét của giáo viên:</span>
-                          <p className="leading-relaxed">{sub.feedback}</p>
-                        </div>
-                      )}
+                      {/* Teacher's evaluation / feedback (only if published) */}
+                      {(() => {
+                        const vis = getVisibleSubmissionForLearner(sub);
+                        return vis.isPublished && vis.visibleFeedback ? (
+                          <div className="p-3 bg-blue-50/80 rounded-2xl border border-blue-100 text-xs text-blue-900 space-y-1">
+                            <span className="font-extrabold block text-blue-800">Nhận xét của giáo viên:</span>
+                            <p className="leading-relaxed">{vis.visibleFeedback}</p>
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
 
                     <button
@@ -698,11 +718,20 @@ export const ParentAssignments: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Điểm số đạt được:</span>
-                <span className="font-black text-blue-700 text-sm">
-                  {viewSub.score !== undefined ? `${viewSub.score} / 10đ` : 'Chờ giáo viên chấm'}
-                </span>
+                {(() => {
+                  const vis = getVisibleSubmissionForLearner(viewSub);
+                  return (
+                    <span className="font-black text-blue-700 text-sm">
+                      {vis.isPublished && vis.visibleScore !== undefined
+                        ? `${vis.visibleScore} / ${viewAsg.points_max || 10}đ`
+                        : vis.gradeStatus === 'graded'
+                        ? 'Đã chấm (Chờ công bố)'
+                        : 'Chờ giáo viên chấm'}
+                    </span>
+                  );
+                })()}
               </div>
-              {viewSub.correct_count !== undefined && (
+              {getVisibleSubmissionForLearner(viewSub).isPublished && viewSub.correct_count !== undefined && (
                 <div className="flex justify-between">
                   <span className="text-slate-500">Câu hỏi trắc nghiệm đúng:</span>
                   <span className="font-extrabold text-emerald-700">
@@ -712,12 +741,15 @@ export const ParentAssignments: React.FC = () => {
               )}
             </div>
 
-            {viewSub.feedback && (
-              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-blue-900">
-                <span className="font-extrabold block mb-1">Lời nhận xét & đánh giá của giáo viên:</span>
-                <p className="leading-relaxed">{viewSub.feedback}</p>
-              </div>
-            )}
+            {(() => {
+              const vis = getVisibleSubmissionForLearner(viewSub);
+              return vis.isPublished && vis.visibleFeedback ? (
+                <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-blue-900">
+                  <span className="font-extrabold block mb-1">Lời nhận xét & đánh giá của giáo viên:</span>
+                  <p className="leading-relaxed">{vis.visibleFeedback}</p>
+                </div>
+              ) : null;
+            })()}
 
             {viewSub.content && (
               <div>

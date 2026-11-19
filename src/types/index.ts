@@ -185,8 +185,13 @@ export interface LessonTopic {
   attachments?: { name: string; url: string; size?: string; type?: string }[];
 }
 
+export type AssignmentReceiveStatus = 'draft' | 'scheduled' | 'open' | 'closed' | 'withdrawn';
+export type GradingPolicy = 'latest_valid' | 'highest_score' | 'teacher_selected';
+export type GradeStatus = 'ungraded' | 'draft_grade' | 'graded' | 'published';
+
 export interface Assignment {
   id: string;
+  code?: string;
   class_id: string;
   class_name: string;
   subject_id: string;
@@ -195,28 +200,39 @@ export interface Assignment {
   teacher_name?: string;
   title: string;
   description: string;
-  type?: 'homework' | 'exam'; // Bài tập về nhà / Bài kiểm tra
-  topic_ids?: string[]; // Danh sách chủ đề bài học Màn hình 111 được chọn
+  type?: 'homework' | 'exam' | 'classwork'; // Bài tập về nhà / Bài kiểm tra / Trên lớp
+  topic_ids?: string[]; // Danh sách chủ đề bài học được chọn
   question_selection_mode?: 'random' | 'manual'; // Tự động ngẫu nhiên / Chọn thủ công
-  format_type?: 'both' | 'mcq_only' | 'essay_only'; // (1) Trắc nghiệm và tự luận; (2) Trắc nghiệm; (3) Tự luận
-  mcq_count?: number; // Số câu trắc nghiệm
-  essay_count?: number; // Số câu tự luận
+  format_type?: 'both' | 'mcq_only' | 'essay_only';
+  mcq_count?: number;
+  essay_count?: number;
   difficulty_filter?: 'all' | 'easy' | 'medium' | 'hard' | QuestionDifficulty;
-  duration_minutes?: number; // Thời gian làm bài (phút), 0 = không giới hạn
-  max_attempts?: number; // Số lần làm bài
-  shuffle_questions?: boolean; // Trộn câu hỏi
-  shuffle_options?: boolean; // Trộn đáp án
-  show_answers_mode?: 'after_submit' | 'after_due_date' | 'manual'; // Thời điểm hiện đáp án/nhận xét
-  special_instructions?: string; // Yêu cầu thêm/chỉ dẫn cho giáo viên/học sinh
+  duration_minutes?: number;
+  max_attempts?: number;
+  shuffle_questions?: boolean;
+  shuffle_options?: boolean;
+  show_answers_mode?: 'after_submit' | 'after_due_date' | 'manual';
+  special_instructions?: string;
   attachments?: { name: string; url: string; size?: string }[];
+  opens_at?: string;
   due_date: string;
   points_max: number;
   status: 'draft' | 'published' | 'closed';
+  receive_status?: AssignmentReceiveStatus;
+  grading_policy?: GradingPolicy;
+  score_step?: number;
+  auto_publish_on_grade?: boolean;
+  late_penalty_percent?: number;
+  version?: number;
+  content_version?: number;
+  withdrawn_at?: string | null;
+  withdrawn_reason?: string;
   allow_late: boolean;
   submitted_count: number;
   graded_count: number;
   total_students: number;
   created_at: string;
+  updated_at?: string;
   total_questions?: number;
   questions?: AssignmentQuestionItem[];
   is_from_question_bank?: boolean;
@@ -228,18 +244,115 @@ export interface Submission {
   student_id: string;
   student_name: string;
   student_code: string;
+  attempt_no?: number;
   submitted_at: string;
   content?: string;
-  files?: { name: string; url: string; size?: string }[];
+  files?: { name: string; url: string; size?: string; mime?: string; size_bytes?: number }[];
   score?: number;
   feedback?: string;
+  grade_status?: GradeStatus;
   graded_by?: string;
   graded_at?: string;
+  published_at?: string;
+  version?: number;
   status: 'submitted' | 'graded' | 'late' | 'returned';
   answers?: Record<string, string>;
   correct_count?: number;
   wrong_count?: number;
   unanswered_count?: number;
+  is_official?: boolean;
+  submission_source?: 'online' | 'offline_teacher';
+  resubmit_requested?: boolean;
+  resubmit_reason?: string;
+  resubmit_due_at?: string;
+}
+
+export interface TeacherClassAssignment {
+  id: string;
+  teacher_id: string;
+  class_id: string;
+  subject_id?: string;
+  valid_from: string;
+  valid_to?: string | null;
+}
+
+export interface AssignmentRecipient {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  due_override_at?: string | null;
+  assigned_at: string;
+  status: 'assigned' | 'submitted' | 'graded';
+  extra_attempts?: number;
+  reminder_count?: number;
+  last_reminded_at?: string | null;
+}
+
+export interface GradeRevision {
+  id: string;
+  grade_id: string;
+  submission_id: string;
+  assignment_id: string;
+  student_id: string;
+  old_score: number | null;
+  new_score: number;
+  reason: string;
+  changed_by: string;
+  changed_by_id?: string;
+  changed_at: string;
+}
+
+export type AssignmentEventType =
+  | 'create'
+  | 'edit_metadata'
+  | 'extend'
+  | 'close'
+  | 'reopen'
+  | 'withdraw'
+  | 'duplicate'
+  | 'reassign'
+  | 'publish'
+  | 'request_resubmit'
+  | 'remind'
+  | 'grade'
+  | 'revise_grade'
+  | 'direct_submit'
+  | 'export';
+
+export interface AssignmentEvent {
+  id: string;
+  assignment_id: string;
+  actor_id: string;
+  actor_name: string;
+  event_type: AssignmentEventType;
+  payload: Record<string, any>;
+  created_at: string;
+}
+
+export type NotificationChannel = 'system' | 'parent_app' | 'email';
+
+export interface NotificationJob {
+  id: string;
+  assignment_id: string;
+  created_by: string;
+  created_by_name: string;
+  type: 'reminder' | 'extend' | 'publish' | 'resubmit';
+  channel: NotificationChannel;
+  message: string;
+  status: 'completed' | 'partial' | 'failed';
+  created_at: string;
+}
+
+export interface NotificationDelivery {
+  id: string;
+  job_id: string;
+  assignment_id: string;
+  recipient_id: string;
+  recipient_name: string;
+  channel: NotificationChannel;
+  status: 'sent' | 'failed' | 'skipped_duplicate';
+  sent_at?: string;
+  error?: string;
 }
 
 export interface GradeCategory {

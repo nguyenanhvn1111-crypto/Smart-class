@@ -3,8 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
 import { DEMO_USERS } from '../../services/seedData';
+import { SmartClassLogo } from '../../components/common/SmartClassLogo';
 import {
-  GraduationCap,
   Lock,
   Mail,
   ArrowRight,
@@ -212,14 +212,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="w-14 h-14 rounded-3xl bg-linear-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white mx-auto shadow-lg shadow-blue-500/20 mb-3">
-          <GraduationCap className="w-8 h-8" />
-        </div>
+        <SmartClassLogo variant="light" size="lg" className="mx-auto mb-3.5" />
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-          SmartClass Platform
+          Smart Class
         </h2>
         <p className="mt-1 text-xs sm:text-sm text-slate-500">
-          Hệ thống Quản lý Lớp học & Ngân hàng Câu hỏi Thông minh
+          Hệ thống quản lý lớp học thông minh
         </p>
       </div>
 
@@ -317,7 +315,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-semibold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-linear-to-r from-[#2563FF] to-[#713BFF] hover:opacity-95 active:scale-98 text-white font-semibold text-sm rounded-xl shadow-md shadow-[#2563FF]/25 transition-all flex items-center justify-center gap-2"
                 >
                   <span>{isLoading ? 'Đang đăng nhập...' : 'Đăng nhập vào hệ thống'}</span>
                   <ArrowRight className="w-4 h-4" />
@@ -561,7 +559,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-semibold text-sm rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 mt-2"
+                    className="w-full py-3 bg-linear-to-r from-[#2563FF] to-[#713BFF] hover:opacity-95 active:scale-98 text-white font-semibold text-sm rounded-xl shadow-md shadow-[#2563FF]/25 transition-all flex items-center justify-center gap-2 mt-2"
                   >
                     <span>{isLoading ? 'Đang tạo tài khoản...' : 'Đăng ký tài khoản vào hệ thống'}</span>
                     <ArrowRight className="w-4 h-4" />

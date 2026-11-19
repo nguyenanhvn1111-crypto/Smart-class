@@ -333,7 +333,7 @@ III. TIẾN TRÌNH DẠY HỌC:
                 {topic.class_name} • {topic.subject_name}
               </span>
               <span className="text-[11px] text-slate-400 hidden sm:inline">
-                Tiết {topic.period_number || 1} • {new Date(topic.session_date).toLocaleDateString('vi-VN')}
+                Buổi {topic.period_number || 1} • {new Date(topic.session_date).toLocaleDateString('vi-VN')}
               </span>
             </div>
             <h2 className="text-sm sm:text-base font-extrabold text-white truncate max-w-md sm:max-w-xl">
@@ -720,7 +720,7 @@ III. TIẾN TRÌNH DẠY HỌC:
                     Môn: <span className="text-blue-700 uppercase">{topic.subject_name}</span>
                   </span>
                   <span className="text-slate-600 block">
-                    Lớp: <span className="font-bold">{topic.class_name}</span> | Tiết: {topic.period_number || 1}
+                    Lớp: <span className="font-bold">{topic.class_name}</span> | Buổi: {topic.period_number || 1}
                   </span>
                   <span className="text-slate-500 text-[11px] block">
                     Ngày dạy: {new Date(topic.session_date).toLocaleDateString('vi-VN')}

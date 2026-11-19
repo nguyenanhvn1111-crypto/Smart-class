@@ -6,6 +6,7 @@ import { DataService, store } from '../../services/dataService';
 import { StatCard } from '../../components/common/StatCard';
 import { ChartCard } from '../../components/common/ChartCard';
 import { StatusChip } from '../../components/common/StatusChip';
+import { useDailyNatureClock } from '../../hooks/useDailyNatureClock';
 import {
   Users,
   CalendarCheck,
@@ -45,6 +46,18 @@ export const TeacherDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
+  const [bannerImgError, setBannerImgError] = useState(false);
+
+  const {
+    fullVietnameseDate,
+    weekdayName,
+    academicTermLabel,
+    dailyScene
+  } = useDailyNatureClock();
+
+  useEffect(() => {
+    setBannerImgError(false);
+  }, [dailyScene.id]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -94,41 +107,66 @@ export const TeacherDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="relative overflow-hidden bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-6 sm:p-8 text-white shadow-lg">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-semibold mb-2">
-              Học kỳ 1 • Năm học 2025 - 2026
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Xin chào, {user?.full_name || 'Thầy/Cô'}! 👋
+      {/* Welcome Banner with Daily Nature Scenery */}
+      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-lg bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900">
+        {!bannerImgError && (
+          <img
+            src={dailyScene.imageUrl}
+            alt={dailyScene.alt}
+            referrerPolicy="no-referrer"
+            onError={() => setBannerImgError(true)}
+            className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500"
+          />
+        )}
+
+        {/* Measured contrast scrim so foreground text & controls meet WCAG AA over daylight or sunset nature scenes */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-900/60 to-slate-950/30"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/20"
+        />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm font-medium text-emerald-100/95 tabular-nums">
+              <span>{academicTermLabel}</span>
+              <span aria-hidden="true" className="text-white/50">·</span>
+              <span className="text-white font-semibold">{fullVietnameseDate}</span>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white [text-wrap:balance]">
+              Xin chào, {user?.full_name || 'Thầy/Cô'}!
             </h1>
-            <p className="mt-1 text-sm text-blue-100 max-w-xl">
-              Hôm nay lớp <span className="font-semibold text-white">10A1</span> có 2 tiết Toán và 1 bài kiểm tra 15 phút. Sĩ số có mặt đạt 95.8%.
+
+            <p className="text-sm text-slate-100/90 leading-relaxed max-w-xl">
+              Hôm nay lớp <span className="font-semibold text-white">10A1</span> có 2 tiết Toán và 1 bài kiểm tra 15 phút. Sĩ số có mặt đạt <span className="tabular-nums font-semibold text-white">95.8%</span>.
+            </p>
+
+            <p className="text-xs text-slate-200/80 pt-0.5">
+              Khung cảnh thiên nhiên hôm nay: {dailyScene.title}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             <button
               onClick={() => navigate('/teacher/attendance')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-blue-700 hover:bg-blue-50 font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <CalendarCheck className="w-4 h-4" />
+              <CalendarCheck className="w-4 h-4 shrink-0" />
               <span>Điểm danh ngay</span>
             </button>
             <button
               onClick={() => navigate('/teacher/tools')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 font-semibold text-xs sm:text-sm rounded-xl transition-all active:scale-95"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-950/45 hover:bg-slate-950/65 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition-all active:scale-95 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <Dices className="w-4 h-4" />
+              <Dices className="w-4 h-4 shrink-0" />
               <span>Công cụ lớp học</span>
             </button>
           </div>
         </div>
-
-        {/* Decorative background circle */}
-        <div className="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
       </div>
 
       {/* KPI Cards Grid */}
@@ -224,7 +262,7 @@ export const TeacherDashboard: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="text-base font-semibold text-slate-900">Lịch dạy hôm nay (Thứ Hai)</h3>
+                <h3 className="text-base font-semibold text-slate-900">Lịch dạy hôm nay ({weekdayName})</h3>
               </div>
               <button
                 onClick={() => navigate('/teacher/schedule')}

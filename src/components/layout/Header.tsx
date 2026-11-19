@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useClass } from '../../contexts/ClassContext';
 import { UserRole } from '../../types';
 import {
   Bell,
@@ -31,7 +30,6 @@ export const Header: React.FC<HeaderProps> = ({
   unreadCount = 3
 }) => {
   const { user, role, switchRole, logout } = useAuth();
-  const { classes, selectedClassId, setSelectedClassId } = useClass();
   const navigate = useNavigate();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -47,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
-      {/* Left section: Global Search & Class Selector */}
+      {/* Left section: Global Search */}
       <div className="flex items-center gap-3">
         {/* Global Search trigger */}
         <button
@@ -62,24 +60,6 @@ export const Header: React.FC<HeaderProps> = ({
             ⌘K
           </kbd>
         </button>
-
-        {/* Context-aware Class Selector (visible when teacher) */}
-        {role === 'teacher' && classes.length > 0 && (
-          <div className="hidden md:flex items-center gap-2 bg-blue-50/70 border border-blue-200/60 rounded-xl px-2.5 py-1 text-xs">
-            <span className="text-blue-700 font-medium">Lớp:</span>
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="bg-transparent font-semibold text-blue-900 border-none outline-hidden cursor-pointer"
-            >
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
       </div>
 
       {/* Right section: Role badge, Quick Create, Notifications, Profile */}

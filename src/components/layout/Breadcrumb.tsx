@@ -17,6 +17,11 @@ const pathNameMap: Record<string, string> = {
   history: 'Lịch sử',
   schedule: 'Thời khóa biểu',
   assignments: 'Bài tập',
+  topics: 'Chủ đề bài học',
+  'create-from-bank': 'Tạo bài tập từ ngân hàng',
+  'create-quick': 'Tạo nhanh bài tập',
+  'question-bank': 'Ngân hàng câu hỏi',
+  'auto-grading': 'Chấm bài tự động',
   grading: 'Chấm điểm',
   quizzes: 'Kiểm tra',
   results: 'Kết quả',
@@ -25,10 +30,13 @@ const pathNameMap: Record<string, string> = {
   grades: 'Sổ điểm',
   'attendance-analytics': 'Thống kê chuyên cần',
   behavior: 'Hành vi & Thi đua',
+  rewards: 'Khen thưởng',
   alerts: 'Cảnh báo',
   tools: 'Công cụ lớp học',
   announcements: 'Thông báo',
+  messages: 'Tin nhắn',
   reports: 'Báo cáo',
+  submissions: 'Bài nộp',
   profile: 'Hồ sơ',
   settings: 'Cài đặt',
   schools: 'Trường học',
@@ -38,11 +46,53 @@ const pathNameMap: Record<string, string> = {
   audit: 'Nhật ký bảo mật'
 };
 
-export const Breadcrumb: React.FC = () => {
+interface BreadcrumbProps {
+  isDark?: boolean;
+}
+
+export const Breadcrumb: React.FC<BreadcrumbProps> = ({ isDark = false }) => {
   const location = useLocation();
   const pathnames = location.pathname.split('/').filter((x) => x);
 
   if (pathnames.length === 0) return null;
+
+  if (isDark && location.pathname.startsWith('/teacher/assignments')) {
+    const isReports = location.pathname.endsWith('/reports');
+    const hasSubmission = location.pathname.includes('/submissions/');
+
+    return (
+      <nav className="flex flex-wrap items-center text-xs text-slate-300 mb-3" aria-label="Breadcrumb">
+        <Link
+          to="/teacher/dashboard"
+          className="flex items-center gap-1 hover:text-[#00D4FF] transition-colors"
+        >
+          <Home className="w-3.5 h-3.5" />
+        </Link>
+        <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
+        <Link to="/teacher/modules" className="hover:text-[#00D4FF] transition-colors">
+          Dạy &amp; Học
+        </Link>
+        <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
+        <Link to="/teacher/assignments" className="hover:text-[#00D4FF] transition-colors">
+          Giao bài tập
+        </Link>
+        <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
+        {isReports || hasSubmission ? (
+          <>
+            <Link to="/teacher/assignments" className="hover:text-[#00D4FF] transition-colors">
+              Danh sách bài tập đã giao
+            </Link>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
+            <span className="font-semibold text-[#00D4FF]">
+              {isReports ? 'Báo cáo lượt giao' : 'Chấm & Xem bài làm'}
+            </span>
+          </>
+        ) : (
+          <span className="font-semibold text-[#00D4FF]">Danh sách bài tập đã giao</span>
+        )}
+      </nav>
+    );
+  }
 
   return (
     <nav className="flex items-center text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
@@ -73,3 +123,4 @@ export const Breadcrumb: React.FC = () => {
     </nav>
   );
 };
+

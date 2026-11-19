@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { DataService } from '../../services/dataService';
+import {
+  deriveAssignmentReceiveStatus,
+  getVisibleSubmissionForLearner
+} from '../../services/assignmentManagementService';
 import { Assignment, Submission, AssignmentQuestionItem } from '../../types';
 import { Modal } from '../../components/common/Modal';
 import {
@@ -44,6 +48,7 @@ export const StudentAssignments: React.FC = () => {
   const [attachedFileName, setAttachedFileName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Review completed submission modal
   const [reviewSub, setReviewSub] = useState<Submission | null>(null);
@@ -71,12 +76,16 @@ export const StudentAssignments: React.FC = () => {
     return unsub;
   }, []);
 
-  // Map of student's own submissions
+  // Map of student's own official/latest submissions
   const mySubmissionsMap = new Map<string, Submission>();
   submissions
     .filter((s) => s.student_id === currentStudentId)
+    .sort((a, b) => (a.attempt_no || 1) - (b.attempt_no || 1))
     .forEach((s) => {
-      mySubmissionsMap.set(s.assignment_id, s);
+      const existing = mySubmissionsMap.get(s.assignment_id);
+      if (!existing || s.is_official || !existing.is_official) {
+        mySubmissionsMap.set(s.assignment_id, s);
+      }
     });
 
   // Calculate statistics for Tab 2: "học sinh có thể thấy mình đã làm bao nhiêu bài và còn lại mấy bài"
@@ -111,6 +120,7 @@ export const StudentAssignments: React.FC = () => {
     e.preventDefault();
     if (!activeWorkingAsg) return;
 
+    setSubmitError(null);
     setIsSubmitting(true);
 
     try {
@@ -142,6 +152,8 @@ export const StudentAssignments: React.FC = () => {
       }, 1800);
 
       loadData();
+    } catch (err: any) {
+      setSubmitError(err?.message || 'Không thể nộp bài vào lúc này. Vui lòng thử lại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -275,17 +287,22 @@ export const StudentAssignments: React.FC = () => {
 
                       {/* Emote tròn xanh lá nếu đã làm, tròn đỏ nếu chưa làm */}
                       {isCompleted ? (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-extrabold">
-                          <span className="text-sm">🟢</span>
-                          <span>Đã làm</span>
-                          {mySub.score !== undefined && (
-                            <span className="ml-1 bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-md font-black">
-                              {mySub.score}đ
-                            </span>
-                          )}
-                        </div>
+                        (() => {
+                          const vis = getVisibleSubmissionForLearner(mySub);
+                          return (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-extrabold">
+                              <span className="text-sm">🟢</span>
+                              <span>Đã làm</span>
+                              {vis.isPublished && vis.visibleScore !== undefined && (
+                                <span className="ml-1 bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded-md font-black">
+                                  {vis.visibleScore}đ
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()
                       ) : (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-xs font-extrabold animate-pulse">
+                        <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full text-xs font-extrabold">
                           <span className="text-sm">🔴</span>
                           <span>Chưa làm</span>
                         </div>
@@ -440,31 +457,45 @@ export const StudentAssignments: React.FC = () => {
                           </span>
                         </div>
 
-                        {sub.score !== undefined ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black bg-blue-50 text-blue-800 border border-blue-200 self-start sm:self-auto">
-                            <Award className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Điểm: {sub.score} / 10đ</span>
-                          </span>
-                        ) : (
-                          <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 self-start sm:self-auto">
-                            Đã nộp • Chờ chấm điểm
-                          </span>
-                        )}
+                        {(() => {
+                          const vis = getVisibleSubmissionForLearner(sub);
+                          return (
+                            <>
+                              {vis.isPublished && vis.visibleScore !== undefined ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black bg-blue-50 text-blue-800 border border-blue-200 self-start sm:self-auto">
+                                  <Award className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>Điểm: {vis.visibleScore} / {asg.points_max || 10}đ</span>
+                                </span>
+                              ) : vis.gradeStatus === 'graded' ? (
+                                <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-cyan-50 text-cyan-800 border border-cyan-200 self-start sm:self-auto">
+                                  Đã chấm • Chờ công bố điểm
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 rounded-xl text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 self-start sm:self-auto">
+                                  Đã nộp • Chờ chấm điểm
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <div>
                         <h4 className="font-bold text-slate-900 text-sm sm:text-base">{asg.title}</h4>
-                        {sub.feedback && (
-                          <div className="mt-2 p-3 bg-blue-50/70 rounded-xl border border-blue-100 text-xs text-blue-900">
-                            <span className="font-bold block mb-0.5">Lời nhận xét của thầy cô:</span>
-                            <span>{sub.feedback}</span>
-                          </div>
-                        )}
+                        {(() => {
+                          const vis = getVisibleSubmissionForLearner(sub);
+                          return vis.isPublished && vis.visibleFeedback ? (
+                            <div className="mt-2 p-3 bg-blue-50/70 rounded-xl border border-blue-100 text-xs text-blue-900">
+                              <span className="font-bold block mb-0.5">Lời nhận xét của thầy cô:</span>
+                              <span>{vis.visibleFeedback}</span>
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
 
                       <div className="flex items-center justify-between pt-1 text-xs">
                         <span className="text-slate-500">
-                          {sub.correct_count !== undefined && (
+                          {getVisibleSubmissionForLearner(sub).isPublished && sub.correct_count !== undefined && (
                             <b>Đúng {sub.correct_count}/{asg.total_questions || 5} câu trắc nghiệm • </b>
                           )}
                           Tệp nộp: {sub.files?.[0]?.name || 'Bai_lam.pdf'}
@@ -534,6 +565,20 @@ export const StudentAssignments: React.FC = () => {
             <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-bold flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
               <span>Nộp bài thành công! Bài tập đã chuyển sang trạng thái 🟢 Đã làm. Đang chuyển về tab "Bài tập đã làm"...</span>
+            </div>
+          )}
+
+          {submitError && (
+            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+
+          {activeWorkingAsg && deriveAssignmentReceiveStatus(activeWorkingAsg) !== 'open' && (
+            <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+              <span>Bài tập này hiện đã đóng nhận bài hoặc tạm khóa, hệ thống không tiếp nhận bài nộp mới.</span>
             </div>
           )}
 
@@ -667,7 +712,7 @@ export const StudentAssignments: React.FC = () => {
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || deriveAssignmentReceiveStatus(activeWorkingAsg) !== 'open'}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition-all active:scale-95 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
@@ -701,18 +746,30 @@ export const StudentAssignments: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Kết quả đánh giá:</span>
-                <span className="font-black text-blue-700 text-sm">
-                  {reviewSub.score !== undefined ? `${reviewSub.score} / 10đ` : 'Chờ chấm điểm'}
-                </span>
+                {(() => {
+                  const vis = getVisibleSubmissionForLearner(reviewSub);
+                  return (
+                    <span className="font-black text-blue-700 text-sm">
+                      {vis.isPublished && vis.visibleScore !== undefined
+                        ? `${vis.visibleScore} / ${reviewAsg.points_max || 10}đ`
+                        : vis.gradeStatus === 'graded'
+                        ? 'Đã chấm (Chờ công bố)'
+                        : 'Chờ chấm điểm'}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 
-            {reviewSub.feedback && (
-              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-blue-900">
-                <span className="font-extrabold block mb-1">Lời nhận xét từ giáo viên:</span>
-                <p className="leading-relaxed">{reviewSub.feedback}</p>
-              </div>
-            )}
+            {(() => {
+              const vis = getVisibleSubmissionForLearner(reviewSub);
+              return vis.isPublished && vis.visibleFeedback ? (
+                <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl text-blue-900">
+                  <span className="font-extrabold block mb-1">Lời nhận xét từ giáo viên:</span>
+                  <p className="leading-relaxed">{vis.visibleFeedback}</p>
+                </div>
+              ) : null;
+            })()}
 
             {reviewSub.content && (
               <div>

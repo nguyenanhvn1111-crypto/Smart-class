@@ -118,7 +118,7 @@ export const AIQuestionWizardModal: React.FC<AIQuestionWizardModalProps> = ({
           points: 1.0,
           explanation: q.explanation || 'Lời giải chi tiết bám sát chương trình chuẩn.',
           source_type: 'ai_generated',
-          source_ref: 'Gemini 2.5 Flash Educational Engine',
+          source_ref: 'Gemini 4 Hydrogen Educational Engine',
           tags: ['AI đề xuất', 'Cần giáo viên kiểm tra', subject, grade],
           status: 'pending_review',
           options: chosenType === 'single_choice' || chosenType === 'multiple_choice'

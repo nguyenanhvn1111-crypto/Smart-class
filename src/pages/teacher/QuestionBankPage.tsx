@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataService } from '../../services/dataService';
 import { Question, QuestionType, QuestionDifficulty, QuestionStatus } from '../../types';
 import { MathRenderer } from '../../components/common/MathRenderer';
@@ -47,6 +47,8 @@ import {
 export const QuestionBankPage: React.FC = () => {
   const navigate = useNavigate();
 
+  const [searchParams] = useSearchParams();
+
   // Main 3 Tabs + Repository tab
   const [mainBankTab, setMainBankTab] = useState<'tab1_import' | 'tab2_ai' | 'tab3_manual' | 'tab4_repository'>('tab3_manual');
 
@@ -89,6 +91,17 @@ export const QuestionBankPage: React.FC = () => {
     setQuestions(qs);
     setLoading(false);
   };
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'pending_review' || tabParam === 'unapproved' || tabParam === 'chua_duyet') {
+      setMainBankTab('tab4_repository');
+      setActiveTab('pending_review');
+    } else if (tabParam === 'approved' || tabParam === 'da_duyet') {
+      setMainBankTab('tab4_repository');
+      setActiveTab('approved');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadData();
@@ -521,8 +534,8 @@ export const QuestionBankPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-1.5 text-xs font-bold">
             {[
               { id: 'all', label: 'Tất cả câu hỏi', count: totalCount },
-              { id: 'approved', label: 'Đã duyệt', count: approvedCount },
-              { id: 'pending_review', label: 'Chờ duyệt', count: pendingCount },
+              { id: 'approved', label: 'Câu hỏi đã duyệt', count: approvedCount },
+              { id: 'pending_review', label: 'Câu hỏi chưa duyệt', count: pendingCount },
               { id: 'draft', label: 'Bản nháp', count: questions.filter((q) => q.status === 'draft').length },
               { id: 'archived', label: 'Lưu trữ / Cần sửa', count: questions.filter((q) => q.status === 'archived' || q.status === 'rejected').length }
             ].map((tab) => (
@@ -535,12 +548,24 @@ export const QuestionBankPage: React.FC = () => {
                 }}
                 className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5 ${
                   activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? tab.id === 'pending_review'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : tab.id === 'approved'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-blue-600 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    activeTab === tab.id
+                      ? 'bg-white/20 text-white'
+                      : tab.id === 'pending_review' && pendingCount > 0
+                      ? 'bg-amber-100 text-amber-800 font-extrabold'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
                   {tab.count}
                 </span>
               </button>
@@ -631,6 +656,8 @@ export const QuestionBankPage: React.FC = () => {
               <option value="Ngữ Văn">Ngữ Văn</option>
               <option value="Tiếng Anh">Tiếng Anh</option>
               <option value="Lịch Sử">Lịch Sử</option>
+              <option value="Địa Lý">Địa Lý</option>
+              <option value="Tin Học">Tin Học</option>
             </select>
           </div>
 
@@ -750,6 +777,38 @@ export const QuestionBankPage: React.FC = () => {
                 Bỏ chọn
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Banner hướng dẫn khi ở Tab Chưa duyệt */}
+        {activeTab === 'pending_review' && (
+          <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-extrabold text-sm text-amber-950 block">
+                  Đang có {pendingCount} câu hỏi ở trạng thái CHƯA DUYỆT
+                </span>
+                <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                  Các câu hỏi trong tab này <b>CHƯA hiển thị</b> trong phần tạo đề bài tập. Nếu là câu hỏi tạo miễn phí, thầy/cô bấm nút <b>Sửa</b> để nhập nội dung câu hỏi và đáp án bằng tay. Sau đó bấm <b>"Duyệt câu hỏi"</b> để kích hoạt đưa vào đề thi.
+                </p>
+              </div>
+            </div>
+
+            {pendingCount > 0 && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const pendingIds = questions.filter((q) => q.status === 'pending_review').map((q) => q.id);
+                  await DataService.batchUpdateQuestionStatus(pendingIds, 'approved');
+                  loadData();
+                }}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Duyệt tất cả ({pendingCount} câu)</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -885,6 +944,17 @@ export const QuestionBankPage: React.FC = () => {
 
                       <td className="p-3.5 text-right pr-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
+                          {q.status !== 'approved' && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateStatus(q.id, 'approved')}
+                              className="px-2.5 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-all flex items-center gap-1 shadow-2xs mr-1 cursor-pointer"
+                              title="Duyệt câu hỏi này để sử dụng trong bài tập"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Duyệt</span>
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => handleOpenDetail(q)}

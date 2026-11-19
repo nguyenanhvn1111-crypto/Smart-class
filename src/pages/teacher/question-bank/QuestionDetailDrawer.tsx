@@ -347,8 +347,17 @@ export const QuestionDetailDrawer: React.FC<QuestionDetailDrawerProps> = ({
                 </div>
               )}
 
-              {/* 8. Essay Rubric */}
-              {question.question_type === 'essay' && question.rubric && (
+              {/* 8. Essay Sample Answer & Rubric */}
+              {question.question_type === 'essay' && typeof question.correct_answer === 'string' && question.correct_answer.trim() !== '' && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Đáp án mẫu & Hướng dẫn chấm:</span>
+                  <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-2xl text-xs sm:text-sm text-slate-800">
+                    <MathRenderer content={question.correct_answer} />
+                  </div>
+                </div>
+              )}
+
+              {question.question_type === 'essay' && question.rubric && question.rubric.length > 0 && (
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Rubric thang điểm chi tiết:</span>
                   <div className="border border-slate-200 rounded-xl overflow-hidden">

@@ -128,6 +128,11 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       } else if (initialQuestion.question_type === 'multiple_choice') {
         setMultipleCorrectAnswers(Array.isArray(initialQuestion.correct_answer) ? initialQuestion.correct_answer : ['A']);
       }
+      setEssayAnswer(
+        initialQuestion.question_type === 'essay' && typeof initialQuestion.correct_answer === 'string'
+          ? initialQuestion.correct_answer
+          : ''
+      );
       if (initialQuestion.statements) setStatements(initialQuestion.statements);
       if (initialQuestion.matching_pairs) setMatchingPairs(initialQuestion.matching_pairs);
       if (initialQuestion.ordering_items) setOrderingItems(initialQuestion.ordering_items);
@@ -148,6 +153,7 @@ export const QuestionEditorModal: React.FC<QuestionEditorModalProps> = ({
       setDifficulty('thong_hieu');
       setQuestionText('');
       setExplanation('');
+      setEssayAnswer('');
       setOptions([
         { id: 'A', text: '', is_correct: true },
         { id: 'B', text: '', is_correct: false },

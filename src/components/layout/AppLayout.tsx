@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { Breadcrumb } from './Breadcrumb';
@@ -16,6 +16,14 @@ export const AppLayout: React.FC = () => {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { role } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isDarkAssignmentWorkspace =
+    location.pathname === '/teacher/assignments' ||
+    (location.pathname.startsWith('/teacher/assignments/') &&
+      !location.pathname.startsWith('/teacher/assignments/topics') &&
+      !location.pathname.startsWith('/teacher/assignments/create') &&
+      !location.pathname.startsWith('/teacher/assignments/new'));
 
   // Filter global search results across entities based on query
   const queryLower = searchQuery.toLowerCase().trim();
@@ -55,7 +63,7 @@ export const AppLayout: React.FC = () => {
       />
 
       {/* Main content wrapper */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header bar */}
         <div className="flex items-center">
           <button
@@ -65,7 +73,7 @@ export const AppLayout: React.FC = () => {
           >
             <Menu className="w-6 h-6" />
           </button>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <Header
               onOpenSearch={() => setSearchOpen(true)}
               onOpenNotifications={() => setNotificationsOpen(true)}
@@ -75,8 +83,14 @@ export const AppLayout: React.FC = () => {
         </div>
 
         {/* Page body */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          <Breadcrumb />
+        <main
+          className={`flex-1 w-full min-w-0 ${
+            isDarkAssignmentWorkspace
+              ? 'bg-[#00121F] text-slate-100 p-4 sm:p-5 lg:p-6'
+              : 'p-2 sm:p-3 lg:p-4'
+          }`}
+        >
+          <Breadcrumb isDark={isDarkAssignmentWorkspace} />
           <Outlet />
         </main>
       </div>

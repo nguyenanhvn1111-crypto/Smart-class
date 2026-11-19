@@ -31,7 +31,11 @@ import {
   INITIAL_ACADEMIC_YEARS,
   INITIAL_SCHOOL,
   INITIAL_GRADE_CATEGORIES,
-  INITIAL_LESSON_TOPICS
+  INITIAL_LESSON_TOPICS,
+  INITIAL_TEACHER_CLASS_ASSIGNMENTS,
+  INITIAL_ASSIGNMENT_RECIPIENTS,
+  INITIAL_GRADE_REVISIONS,
+  INITIAL_ASSIGNMENT_EVENTS
 } from './seedData';
 import {
   ClassModel,
@@ -56,7 +60,13 @@ import {
   AcademicYear,
   School,
   GradeCategory,
-  LessonTopic
+  LessonTopic,
+  TeacherClassAssignment,
+  AssignmentRecipient,
+  GradeRevision,
+  AssignmentEvent,
+  NotificationJob,
+  NotificationDelivery
 } from '../types';
 
 // In-memory persistent reactive store
@@ -67,6 +77,12 @@ class DataStore {
   assignments: Assignment[] = [...INITIAL_ASSIGNMENTS];
   lessonTopics: LessonTopic[] = [...INITIAL_LESSON_TOPICS];
   submissions: Submission[] = [...INITIAL_SUBMISSIONS];
+  teacherClassAssignments: TeacherClassAssignment[] = [...INITIAL_TEACHER_CLASS_ASSIGNMENTS];
+  assignmentRecipients: AssignmentRecipient[] = [...INITIAL_ASSIGNMENT_RECIPIENTS];
+  gradeRevisions: GradeRevision[] = [...INITIAL_GRADE_REVISIONS];
+  assignmentEvents: AssignmentEvent[] = [...INITIAL_ASSIGNMENT_EVENTS];
+  notificationJobs: NotificationJob[] = [];
+  notificationDeliveries: NotificationDelivery[] = [];
   gradeCategories: GradeCategory[] = [...INITIAL_GRADE_CATEGORIES];
   gradeItems: GradeItem[] = [...INITIAL_GRADE_ITEMS];
   gradeRecords: GradeRecord[] = [...INITIAL_GRADE_RECORDS];
@@ -187,11 +203,20 @@ export const DataService = {
     try {
       const remote = await fetchStudentsFromFirestore(classId);
       if (remote && remote.length > 0) {
+        const prevCount = store.students.length;
         const idMap = new Map(store.students.map((s) => [s.id, s]));
+        let changed = false;
         remote.forEach((rs) => {
-          idMap.set(rs.id, { ...(idMap.get(rs.id) || {}), ...rs });
+          const existing = idMap.get(rs.id);
+          if (!existing || existing.class_id !== rs.class_id || existing.full_name !== rs.full_name) {
+            changed = true;
+          }
+          idMap.set(rs.id, { ...(existing || {}), ...rs });
         });
         store.students = Array.from(idMap.values());
+        if (changed || store.students.length !== prevCount) {
+          store.notify();
+        }
       }
     } catch (e) {
       console.warn('Firestore getStudents fallback to local cache:', e);
@@ -562,24 +587,16 @@ export const DataService = {
     const target = store.lessonTopics.find((t) => t.id === id);
     if (!target) return { success: false, message: 'Chủ đề không tồn tại.' };
 
-    // Kiểm tra xem chủ đề này đã được bài tập nào sử dụng chưa
-    const isUsedByAssignment = store.assignments.some(
-      (a) => a.topic_ids && a.topic_ids.includes(id)
-    );
-
-    if (isUsedByAssignment) {
-      // Chặn xóa trực tiếp hoặc chuyển sang lưu trữ để bảo toàn dữ liệu
-      target.status = 'archived';
-      target.updated_at = new Date().toISOString();
-      store.logAudit('ARCHIVE_TOPIC', 'lesson_topics', id, `Lưu trữ chủ đề đã được dùng trong bài tập: ${target.title}`);
-      store.notify();
-      return {
-        success: false,
-        message: 'Chủ đề đã được bài tập sử dụng nên hệ thống đã tự động chuyển sang trạng thái Lưu trữ (Archived) thay vì xóa hoàn toàn.'
-      };
-    }
-
+    // Xóa hoàn toàn chủ đề khỏi store
     store.lessonTopics = store.lessonTopics.filter((t) => t.id !== id);
+
+    // Dọn dẹp liên kết chủ đề trong các bài tập đã giao nếu có
+    store.assignments.forEach((a) => {
+      if (a.topic_ids && a.topic_ids.includes(id)) {
+        a.topic_ids = a.topic_ids.filter((tid) => tid !== id);
+      }
+    });
+
     store.logAudit('DELETE_TOPIC', 'lesson_topics', id, `Xóa chủ đề: ${target.title}`);
     store.notify();
     return { success: true };
@@ -589,17 +606,25 @@ export const DataService = {
     const src = store.lessonTopics.find((t) => t.id === id);
     if (!src) throw new Error('Không tìm thấy chủ đề để sao chép.');
 
+    // Tự động tăng số buổi học (Buổi học mới = Số buổi học cũ + 1)
+    const currentPeriod = src.period_number || 1;
+    const nextPeriod = currentPeriod + 1;
+
+    // Copy toàn bộ thông tin, môn học, tiêu đề chủ đề nhưng buổi học tự động +1
     const newTopic: LessonTopic = {
       ...src,
       id: 'top-' + Math.random().toString(36).substring(2, 9),
-      title: `${src.title} (Bản sao)`,
-      status: 'draft',
+      title: src.title, // Giữ nguyên toàn bộ thông tin môn hay chủ đề
+      period_number: nextPeriod,
+      question_ids: [...(src.question_ids || [])],
+      attachments: src.attachments ? [...src.attachments] : [],
+      status: src.status === 'archived' ? 'ready' : src.status,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
     store.lessonTopics.unshift(newTopic);
-    store.logAudit('DUPLICATE_TOPIC', 'lesson_topics', newTopic.id, `Sao chép chủ đề: ${newTopic.title}`);
+    store.logAudit('DUPLICATE_TOPIC', 'lesson_topics', newTopic.id, `Nhân bản chủ đề: ${newTopic.title} (Buổi học: ${nextPeriod})`);
     store.notify();
     return newTopic;
   },
@@ -639,7 +664,8 @@ export const DataService = {
     const essayEligible: Question[] = [];
 
     rawQuestions.forEach((q) => {
-      if (q.status === 'archived') return;
+      // Chỉ lấy câu hỏi ĐÃ DUYỆT (approved). Bỏ qua câu chưa duyệt (pending_review, draft, archived, rejected)
+      if (q.status && q.status !== 'approved') return;
       if (!q.question_text || !q.question_text.trim()) return;
 
       // Filter theo độ khó nếu có chỉ định (khác 'all')
@@ -673,12 +699,170 @@ export const DataService = {
     };
   },
 
+  // CHỌN LỌC CÂU HỎI CHIA ĐỀU TỶ LỆ THEO CÁC CHỦ ĐỀ ĐƯỢC CHỌN (VD: 4 chủ đề -> 25%/chủ đề, 2 chủ đề -> 50%/chủ đề)
+  selectQuestionsProportionally(
+    topicIds: string[],
+    options: {
+      mcqCount: number;
+      essayCount: number;
+      difficulty?: string;
+      formatType?: 'both' | 'mcq_only' | 'essay_only';
+      shuffle?: boolean;
+    }
+  ): {
+    selectedMcq: Question[];
+    selectedEssay: Question[];
+    selectedAll: Question[];
+    perTopicAllocations: Array<{
+      topicId: string;
+      topicTitle: string;
+      sharePercent: number;
+      targetMcq: number;
+      selectedMcq: number;
+      availableMcq: number;
+      targetEssay: number;
+      selectedEssay: number;
+      availableEssay: number;
+    }>;
+  } {
+    const selectedTopics = store.lessonTopics.filter((t) => topicIds.includes(t.id));
+    const n = selectedTopics.length;
+    if (n === 0) {
+      return {
+        selectedMcq: [],
+        selectedEssay: [],
+        selectedAll: [],
+        perTopicAllocations: []
+      };
+    }
+
+    const formatType = options.formatType || 'both';
+    const mcqNeeded = formatType === 'essay_only' ? 0 : Math.max(0, options.mcqCount || 0);
+    const essayNeeded = formatType === 'mcq_only' ? 0 : Math.max(0, options.essayCount || 0);
+    const shouldShuffle = options.shuffle !== false;
+
+    const shuffleList = <T,>(arr: T[]): T[] => {
+      const copy = [...arr];
+      if (!shouldShuffle) return copy;
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    };
+
+    const sharePercent = Number((100 / n).toFixed(1));
+    const mcqBase = Math.floor(mcqNeeded / n);
+    const mcqRem = mcqNeeded % n;
+    const essayBase = Math.floor(essayNeeded / n);
+    const essayRem = essayNeeded % n;
+
+    // Phân loại pool đủ điều kiện cho từng chủ đề
+    const topicPools = selectedTopics.map((topic, idx) => {
+      const eligible = this.getEligibleQuestionsForTopics([topic.id], {
+        difficulty: options.difficulty,
+        formatType
+      });
+      return {
+        topic,
+        targetMcq: mcqBase + (idx < mcqRem ? 1 : 0),
+        targetEssay: essayBase + (idx < essayRem ? 1 : 0),
+        mcqPool: shuffleList(eligible.mcqEligible),
+        essayPool: shuffleList(eligible.essayEligible),
+        pickedMcq: [] as Question[],
+        pickedEssay: [] as Question[]
+      };
+    });
+
+    const usedMcqIds = new Set<string>();
+    const usedEssayIds = new Set<string>();
+
+    // Pass 1: Lấy đúng phần trăm (quota) cho từng chủ đề
+    topicPools.forEach((tp) => {
+      for (const q of tp.mcqPool) {
+        if (tp.pickedMcq.length >= tp.targetMcq) break;
+        if (!usedMcqIds.has(q.id)) {
+          tp.pickedMcq.push(q);
+          usedMcqIds.add(q.id);
+        }
+      }
+      for (const q of tp.essayPool) {
+        if (tp.pickedEssay.length >= tp.targetEssay) break;
+        if (!usedEssayIds.has(q.id)) {
+          tp.pickedEssay.push(q);
+          usedEssayIds.add(q.id);
+        }
+      }
+    });
+
+    // Pass 2: Bù phần thiếu nếu một chủ đề cụ thể chưa đủ quota nhưng tổng ngân hàng vẫn còn câu hợp lệ
+    let totalPickedMcq = topicPools.reduce((sum, tp) => sum + tp.pickedMcq.length, 0);
+    if (totalPickedMcq < mcqNeeded) {
+      let addedInRound = true;
+      while (totalPickedMcq < mcqNeeded && addedInRound) {
+        addedInRound = false;
+        for (const tp of topicPools) {
+          if (totalPickedMcq >= mcqNeeded) break;
+          const nextQ = tp.mcqPool.find((q) => !usedMcqIds.has(q.id));
+          if (nextQ) {
+            tp.pickedMcq.push(nextQ);
+            usedMcqIds.add(nextQ.id);
+            totalPickedMcq++;
+            addedInRound = true;
+          }
+        }
+      }
+    }
+
+    let totalPickedEssay = topicPools.reduce((sum, tp) => sum + tp.pickedEssay.length, 0);
+    if (totalPickedEssay < essayNeeded) {
+      let addedInRound = true;
+      while (totalPickedEssay < essayNeeded && addedInRound) {
+        addedInRound = false;
+        for (const tp of topicPools) {
+          if (totalPickedEssay >= essayNeeded) break;
+          const nextQ = tp.essayPool.find((q) => !usedEssayIds.has(q.id));
+          if (nextQ) {
+            tp.pickedEssay.push(nextQ);
+            usedEssayIds.add(nextQ.id);
+            totalPickedEssay++;
+            addedInRound = true;
+          }
+        }
+      }
+    }
+
+    const selectedMcq = topicPools.flatMap((tp) => tp.pickedMcq);
+    const selectedEssay = topicPools.flatMap((tp) => tp.pickedEssay);
+    const selectedAll = [...selectedMcq, ...selectedEssay];
+
+    const perTopicAllocations = topicPools.map((tp) => ({
+      topicId: tp.topic.id,
+      topicTitle: tp.topic.title,
+      sharePercent,
+      targetMcq: tp.targetMcq,
+      selectedMcq: tp.pickedMcq.length,
+      availableMcq: tp.mcqPool.length,
+      targetEssay: tp.targetEssay,
+      selectedEssay: tp.pickedEssay.length,
+      availableEssay: tp.essayPool.length
+    }));
+
+    return {
+      selectedMcq,
+      selectedEssay,
+      selectedAll,
+      perTopicAllocations
+    };
+  },
+
   // ASSIGNMENTS
   async getAssignments(classId?: string): Promise<Assignment[]> {
+    const active = store.assignments.filter((a) => !a.withdrawn_at && a.receive_status !== 'withdrawn');
     if (classId) {
-      return store.assignments.filter((a) => a.class_id === classId);
+      return active.filter((a) => a.class_id === classId);
     }
-    return [...store.assignments];
+    return [...active];
   },
 
   async getAssignmentById(id: string): Promise<Assignment | undefined> {
@@ -687,15 +871,46 @@ export const DataService = {
 
   async createAssignment(assignment: Omit<Assignment, 'id' | 'submitted_count' | 'graded_count' | 'total_students' | 'created_at'>): Promise<Assignment> {
     const cls = store.classes.find((c) => c.id === assignment.class_id);
+    const nowIso = new Date().toISOString();
+    const receiveStatus =
+      assignment.receive_status ||
+      (assignment.status === 'closed'
+        ? 'closed'
+        : assignment.status === 'draft'
+        ? 'draft'
+        : assignment.opens_at && new Date(assignment.opens_at).getTime() > Date.now()
+        ? 'scheduled'
+        : 'open');
+
+    const classStudentCount = store.students.filter((s) => s.class_id === assignment.class_id).length;
     const newAsg: Assignment = {
       ...assignment,
       id: 'asg-' + Math.random().toString(36).substring(2, 9),
+      code: assignment.code || `BT-${Math.floor(100 + Math.random() * 900)}`,
+      receive_status: receiveStatus,
+      grading_policy: assignment.grading_policy || 'latest_valid',
+      score_step: assignment.score_step ?? 0.25,
+      max_attempts: assignment.max_attempts ?? 3,
+      auto_publish_on_grade: assignment.auto_publish_on_grade ?? false,
+      version: assignment.version ?? 1,
+      content_version: assignment.content_version ?? 1,
+      withdrawn_at: null,
       submitted_count: 0,
       graded_count: 0,
-      total_students: cls?.student_count || 24,
-      created_at: new Date().toISOString()
+      total_students: classStudentCount || cls?.student_count || 0,
+      created_at: nowIso,
+      updated_at: nowIso
     };
     store.assignments.unshift(newAsg);
+    store.assignmentEvents.unshift({
+      id: 'aev-' + Date.now(),
+      assignment_id: newAsg.id,
+      actor_id: assignment.teacher_id || 'user-teacher-1',
+      actor_name: assignment.teacher_name || 'Giáo viên',
+      event_type: 'create',
+      payload: { class_id: newAsg.class_id, class_name: newAsg.class_name, receive_status: receiveStatus },
+      created_at: nowIso
+    });
     store.logAudit('CREATE_ASSIGNMENT', 'assignments', newAsg.id, `Giao bài tập: ${newAsg.title} (${newAsg.class_name})`);
     store.notify();
     return newAsg;
@@ -704,15 +919,31 @@ export const DataService = {
   async updateAssignment(id: string, updates: Partial<Assignment>): Promise<Assignment> {
     const index = store.assignments.findIndex((a) => a.id === id);
     if (index === -1) throw new Error('Không tìm thấy bài tập');
-    store.assignments[index] = { ...store.assignments[index], ...updates };
+    store.assignments[index] = {
+      ...store.assignments[index],
+      ...updates,
+      version: (store.assignments[index].version || 1) + 1,
+      updated_at: new Date().toISOString()
+    };
     store.notify();
     return store.assignments[index];
   },
 
   async deleteAssignment(id: string): Promise<void> {
     const target = store.assignments.find((a) => a.id === id);
-    store.assignments = store.assignments.filter((a) => a.id !== id);
-    store.logAudit('DELETE_ASSIGNMENT', 'assignments', id, `Xóa bài tập: ${target?.title}`);
+    if (!target) return;
+    // Soft-delete / withdraw if submissions already exist to preserve history
+    const hasSubs = store.submissions.some((s) => s.assignment_id === id);
+    if (hasSubs) {
+      target.withdrawn_at = new Date().toISOString();
+      target.receive_status = 'withdrawn';
+      target.status = 'closed';
+      target.version = (target.version || 1) + 1;
+      store.logAudit('WITHDRAW_ASSIGNMENT', 'assignments', id, `Thu hồi mềm bài tập có dữ liệu: ${target.title}`);
+    } else {
+      store.assignments = store.assignments.filter((a) => a.id !== id);
+      store.logAudit('DELETE_ASSIGNMENT', 'assignments', id, `Xóa bài tập: ${target.title}`);
+    }
     store.notify();
   },
 
@@ -724,12 +955,47 @@ export const DataService = {
 
   async submitAssignment(submission: Omit<Submission, 'id' | 'submitted_at' | 'status'> & Partial<Pick<Submission, 'status' | 'score'>>): Promise<Submission> {
     const asg = store.assignments.find((a) => a.id === submission.assignment_id);
+    if (!asg) {
+      throw Object.assign(new Error('Không tìm thấy bài tập để nộp.'), { status: 404, code: 'NOT_FOUND' });
+    }
+    // Enforce backend closed / withdrawn gate (TC-07, FLOW-06)
+    if (asg.withdrawn_at || asg.receive_status === 'withdrawn') {
+      throw Object.assign(new Error('Bài tập đã bị thu hồi, không thể nộp bài.'), { status: 422, code: 'ASSIGNMENT_WITHDRAWN' });
+    }
+    if (asg.receive_status === 'closed' || asg.status === 'closed') {
+      throw Object.assign(new Error('Bài tập đã đóng nhận bài, hệ thống chặn nộp mới.'), { status: 422, code: 'ASSIGNMENT_CLOSED' });
+    }
+    if (asg.receive_status === 'draft' || asg.status === 'draft') {
+      throw Object.assign(new Error('Bài tập đang ở trạng thái nháp, chưa mở nhận bài.'), { status: 422, code: 'ASSIGNMENT_NOT_OPEN' });
+    }
+
+    const recipient = store.assignmentRecipients.find(
+      (r) => r.assignment_id === asg.id && r.student_id === submission.student_id
+    );
+    const effectiveDueMs = new Date(recipient?.due_override_at || asg.due_date).getTime();
+    const nowMs = Date.now();
+    const isLate = nowMs > effectiveDueMs;
+    if (isLate && !asg.allow_late) {
+      throw Object.assign(new Error('Đã quá hạn nộp và bài tập không cho phép nộp muộn.'), { status: 422, code: 'PAST_DUE_NOT_ALLOWED' });
+    }
+
+    const studentPrevSubs = store.submissions.filter(
+      (s) => s.assignment_id === asg.id && s.student_id === submission.student_id
+    );
+    const allowedAttempts = (asg.max_attempts ?? 3) + (recipient?.extra_attempts ?? 0);
+    if (studentPrevSubs.length >= allowedAttempts) {
+      throw Object.assign(
+        new Error(`Học sinh đã sử dụng hết số lượt nộp tối đa (${allowedAttempts} lượt).`),
+        { status: 422, code: 'MAX_ATTEMPTS_EXCEEDED' }
+      );
+    }
+
     let correctCount = submission.correct_count ?? 0;
     let wrongCount = submission.wrong_count ?? 0;
     let unansweredCount = submission.unanswered_count ?? 0;
     let autoScore = submission.score;
 
-    if (asg && asg.questions && asg.questions.length > 0 && submission.answers) {
+    if (asg.questions && asg.questions.length > 0 && submission.answers && Object.keys(submission.answers).length > 0) {
       let correct = 0;
       let wrong = 0;
       let unanswered = 0;
@@ -747,30 +1013,69 @@ export const DataService = {
       wrongCount = wrong;
       unansweredCount = unanswered;
       if (autoScore === undefined) {
-        autoScore = Math.round((correct / asg.questions.length) * 10 * 10) / 10;
+        autoScore = Math.round((correct / asg.questions.length) * (asg.points_max || 10) * 10) / 10;
       }
     }
 
+    const nextAttemptNo = studentPrevSubs.length + 1;
+    const initialGradeStatus =
+      autoScore !== undefined
+        ? asg.auto_publish_on_grade
+          ? 'published'
+          : 'graded'
+        : 'ungraded';
+
+    // Demote previous official flag if grading_policy === 'latest_valid'
+    if ((asg.grading_policy || 'latest_valid') === 'latest_valid') {
+      studentPrevSubs.forEach((prev) => {
+        prev.is_official = false;
+      });
+    }
+
+    const nowIso = new Date().toISOString();
     const newSub: Submission = {
       ...submission,
+      attempt_no: nextAttemptNo,
       score: autoScore ?? submission.score,
       correct_count: correctCount,
       wrong_count: wrongCount,
       unanswered_count: unansweredCount,
       id: 'sub-' + Math.random().toString(36).substring(2, 9),
-      submitted_at: new Date().toISOString(),
-      status: autoScore !== undefined ? 'graded' : 'submitted'
+      submitted_at: nowIso,
+      grade_status: initialGradeStatus,
+      published_at: initialGradeStatus === 'published' ? nowIso : undefined,
+      version: 1,
+      is_official:
+        (asg.grading_policy || 'latest_valid') === 'highest_score'
+          ? (autoScore ?? -1) >= Math.max(...studentPrevSubs.map((p) => p.score ?? -1), -1)
+          : true,
+      status: isLate ? 'late' : autoScore !== undefined ? 'graded' : 'submitted'
     };
-    const existingIndex = store.submissions.findIndex(
-      (s) => s.assignment_id === submission.assignment_id && s.student_id === submission.student_id
-    );
-    if (existingIndex >= 0) {
-      store.submissions[existingIndex] = newSub;
-    } else {
-      store.submissions.push(newSub);
-      if (asg) asg.submitted_count += 1;
+
+    if ((asg.grading_policy || 'latest_valid') === 'highest_score' && newSub.is_official) {
+      studentPrevSubs.forEach((prev) => {
+        prev.is_official = false;
+      });
     }
-    store.logAudit('SUBMIT_ASSIGNMENT', 'submissions', newSub.id, `Học sinh ${newSub.student_name} nộp bài`);
+
+    store.submissions.push(newSub);
+    // Sync denormalized counts from store snapshot
+    const classStudentIds = new Set(store.students.filter((s) => s.class_id === asg.class_id).map((s) => s.id));
+    const uniqueSubmittedStudents = new Set(
+      store.submissions.filter((s) => s.assignment_id === asg.id).map((s) => s.student_id)
+    );
+    uniqueSubmittedStudents.forEach((sid) => classStudentIds.add(sid));
+    asg.total_students = classStudentIds.size;
+    asg.submitted_count = uniqueSubmittedStudents.size;
+    asg.graded_count = new Set(
+      store.submissions
+        .filter((s) => s.assignment_id === asg.id && (s.grade_status === 'graded' || s.grade_status === 'published' || s.status === 'graded'))
+        .map((s) => s.student_id)
+    ).size;
+    if (recipient) {
+      recipient.status = initialGradeStatus === 'graded' || initialGradeStatus === 'published' ? 'graded' : 'submitted';
+    }
+    store.logAudit('SUBMIT_ASSIGNMENT', 'submissions', newSub.id, `Học sinh ${newSub.student_name} nộp bài (lần ${nextAttemptNo})`);
     store.notify();
     return newSub;
   },
@@ -778,20 +1083,33 @@ export const DataService = {
   async gradeSubmission(submissionId: string, score: number, feedback: string, teacherName = 'Cô Trần Thị Mai'): Promise<Submission> {
     const index = store.submissions.findIndex((s) => s.id === submissionId);
     if (index === -1) throw new Error('Không tìm thấy bài nộp');
-    const prevStatus = store.submissions[index].status;
+    const prev = store.submissions[index];
+    const asg = store.assignments.find((a) => a.id === prev.assignment_id);
+    const shouldPublish = Boolean(asg?.auto_publish_on_grade);
+    const nowIso = new Date().toISOString();
+
     store.submissions[index] = {
-      ...store.submissions[index],
+      ...prev,
       score,
       feedback,
+      grade_status: shouldPublish ? 'published' : 'graded',
       graded_by: teacherName,
-      graded_at: new Date().toISOString(),
+      graded_at: nowIso,
+      published_at: shouldPublish ? nowIso : prev.published_at,
+      version: (prev.version || 1) + 1,
       status: 'graded'
     };
-    if (prevStatus !== 'graded') {
-      const asg = store.assignments.find((a) => a.id === store.submissions[index].assignment_id);
-      if (asg) asg.graded_count += 1;
+
+    if (asg) {
+      const gradedUnique = new Set(
+        store.submissions
+          .filter((s) => s.assignment_id === asg.id && (s.grade_status === 'graded' || s.grade_status === 'published' || s.status === 'graded'))
+          .map((s) => s.student_id)
+      );
+      asg.graded_count = gradedUnique.size;
     }
-    store.logAudit('GRADE_SUBMISSION', 'submissions', submissionId, `Chấm điểm học sinh ${store.submissions[index].student_name}: ${score}đ`);
+
+    store.logAudit('GRADE_SUBMISSION', 'submissions', submissionId, `Chấm điểm học sinh ${prev.student_name}: ${score}đ`);
     store.notify();
     return store.submissions[index];
   },
@@ -923,6 +1241,7 @@ export const DataService = {
       points: question.points || 1.0,
       status: question.status || 'approved',
       source_type: question.source_type || 'teacher_composed',
+      source_ref: question.source_ref,
       version: 1,
       revisions: [
         {
@@ -1054,6 +1373,7 @@ export const DataService = {
       if (ids.includes(q.id)) {
         q.status = status;
         q.updated_at = new Date().toISOString();
+        saveQuestionToFirestore(q).catch(() => {});
       }
     });
     store.logAudit('BATCH_STATUS_QUESTION', 'questions', 'batch', `Cập nhật trạng thái ${status} cho ${ids.length} câu hỏi`);
@@ -1075,15 +1395,17 @@ export const DataService = {
     store.notify();
   },
 
-  async batchCreateQuestions(questions: Partial<Question>[]): Promise<{ success: number; failed: number }> {
+  async batchCreateQuestions(questions: Partial<Question>[]): Promise<{ success: number; failed: number; questions: Question[] }> {
     let success = 0;
+    const created: Question[] = [];
     for (const q of questions) {
       if (q.question_text) {
-        await this.createQuestion(q);
+        const item = await this.createQuestion(q);
+        created.push(item);
         success++;
       }
     }
-    return { success, failed: questions.length - success };
+    return { success, failed: questions.length - success, questions: created };
   },
   async getQuizzes(classId?: string): Promise<Quiz[]> {
     if (classId) {

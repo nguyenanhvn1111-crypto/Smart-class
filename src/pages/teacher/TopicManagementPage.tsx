@@ -7,6 +7,8 @@ import { LessonTopic, Question, TopicStatus } from '../../types';
 import { MathRenderer } from '../../components/common/MathRenderer';
 import { Modal } from '../../components/common/Modal';
 import { TeachingDocumentModal } from '../../components/teacher/TeachingDocumentModal';
+import { TopicQuestionsModal } from '../../components/teacher/TopicQuestionsModal';
+import { BookQuestionIcon } from '../../components/common/BookQuestionIcon';
 import {
   BookOpen,
   Plus,
@@ -29,8 +31,7 @@ import {
   Check,
   X,
   FileQuestion,
-  Sparkles,
-  ArrowLeft
+  Sparkles
 } from 'lucide-react';
 
 export const TopicManagementPage: React.FC = () => {
@@ -47,6 +48,7 @@ export const TopicManagementPage: React.FC = () => {
   const [filterClass, setFilterClass] = useState<string>(selectedClassId || 'all');
   const [filterSubject, setFilterSubject] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPeriod, setFilterPeriod] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<string>('');
 
   // Form State: Thêm / Sửa chủ đề (Mục 3.2)
@@ -76,6 +78,12 @@ export const TopicManagementPage: React.FC = () => {
 
   // Modal Trang Word & Chế độ Giảng dạy (Teaching Document)
   const [teachingModalTopic, setTeachingModalTopic] = useState<LessonTopic | null>(null);
+
+  // Modal Quản lý câu hỏi theo chủ đề
+  const [manageQuestionsTopic, setManageQuestionsTopic] = useState<LessonTopic | null>(null);
+
+  // Modal Xác nhận xóa chủ đề (Thay thế window.confirm để hoạt động an toàn trong iframe)
+  const [deletingTopic, setDeletingTopic] = useState<LessonTopic | null>(null);
 
   // Notification Toast
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -114,6 +122,7 @@ export const TopicManagementPage: React.FC = () => {
       if (filterClass !== 'all' && t.class_id !== filterClass) return false;
       if (filterSubject !== 'all' && t.subject_id !== filterSubject) return false;
       if (filterStatus !== 'all' && t.status !== filterStatus) return false;
+      if (filterPeriod !== 'all' && (t.period_number || 1).toString() !== filterPeriod) return false;
       if (filterDate && t.session_date !== filterDate) return false;
 
       if (search.trim()) {
@@ -127,7 +136,7 @@ export const TopicManagementPage: React.FC = () => {
 
       return true;
     });
-  }, [topics, filterClass, filterSubject, filterStatus, filterDate, search, role, classes]);
+  }, [topics, filterClass, filterSubject, filterStatus, filterPeriod, filterDate, search, role, classes]);
 
   // Tính số câu trắc nghiệm & tự luận đủ điều kiện cho từng chủ đề (Mục 3.3)
   const getTopicEligibleCounts = (topic: LessonTopic) => {
@@ -171,29 +180,40 @@ export const TopicManagementPage: React.FC = () => {
     setIsFormOpen(true);
   };
 
-  // Duplicate Topic
-  const handleDuplicateTopic = async (id: string) => {
+  // Duplicate Topic (Tự động copy toàn bộ chi tiết và tăng Buổi học = Buổi học cũ + 1)
+  const handleDuplicateTopic = async (topic: LessonTopic) => {
     try {
-      const duplicated = await DataService.duplicateLessonTopic(id);
-      showToast('success', `Đã nhân bản chủ đề: "${duplicated.title}"`);
+      const duplicated = await DataService.duplicateLessonTopic(topic.id);
+      showToast(
+        'success',
+        `Đã nhân bản "${topic.title}": Giữ nguyên thông tin & Tự động tăng Buổi học thành Buổi ${duplicated.period_number}!`
+      );
     } catch (err: any) {
-      showToast('error', err.message || 'Không thể sao chép chủ đề.');
+      showToast('error', err.message || 'Không thể nhân bản chủ đề.');
     }
   };
 
-  // Delete Topic (Mục 3.1: Chặn hoặc lưu trữ nếu đã được bài tập sử dụng)
-  const handleDeleteTopic = async (topic: LessonTopic) => {
-    if (!confirm(`Bạn có chắc chắn muốn xóa chủ đề "${topic.title}"?`)) return;
+  // Mở modal xác nhận xóa chủ đề
+  const handleDeleteTopic = (topic: LessonTopic) => {
+    setDeletingTopic(topic);
+  };
 
+  // Thực thi xóa chủ đề sau khi xác nhận
+  const handleConfirmDelete = async () => {
+    if (!deletingTopic) return;
+    const topicToDelete = deletingTopic;
     try {
-      const res = await DataService.deleteLessonTopic(topic.id);
+      const res = await DataService.deleteLessonTopic(topicToDelete.id);
       if (res.success) {
-        showToast('success', `Đã xóa chủ đề "${topic.title}".`);
+        setTopics((prev) => prev.filter((t) => t.id !== topicToDelete.id));
+        showToast('success', `Đã xóa chủ đề "${topicToDelete.title}" thành công.`);
       } else {
-        showToast('error', res.message || 'Chủ đề đã được sử dụng nên được chuyển sang Lưu trữ.');
+        showToast('error', res.message || 'Lỗi khi xóa chủ đề.');
       }
     } catch (err: any) {
       showToast('error', err.message || 'Lỗi khi xóa chủ đề.');
+    } finally {
+      setDeletingTopic(null);
     }
   };
 
@@ -235,7 +255,7 @@ export const TopicManagementPage: React.FC = () => {
         t.id !== editingTopicId &&
         t.class_id === formClassId &&
         t.subject_id === formSubjectId &&
-        t.session_date === formDate &&
+        (t.period_number || 1) === formPeriod &&
         t.title.trim().toLowerCase() === formTitle.trim().toLowerCase()
     );
 
@@ -366,20 +386,7 @@ export const TopicManagementPage: React.FC = () => {
       {/* Breadcrumb & Navigation Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/teacher/assignments')}
-              className="text-slate-400 hover:text-slate-700 text-xs font-semibold flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Giao bài tập</span>
-            </button>
-            <span className="text-slate-300">/</span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
-              MÀN HÌNH 111
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
             Quản lý chủ đề bài học theo buổi
           </h1>
           <p className="text-xs text-slate-500 mt-1">
@@ -469,15 +476,21 @@ export const TopicManagementPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Date Filter */}
+          {/* Buổi học Filter (1 chữ số: 1, 2, 3... 15) */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-400 font-semibold whitespace-nowrap">Buổi học:</span>
-            <input
-              type="date"
-              value={filterDate}
-              onChange={(e) => setFilterDate(e.target.value)}
+            <select
+              value={filterPeriod}
+              onChange={(e) => setFilterPeriod(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="all">Tất cả các buổi</option>
+              {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
+                <option key={num} value={num.toString()}>
+                  Buổi học {num}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -486,12 +499,15 @@ export const TopicManagementPage: React.FC = () => {
           <span className="text-slate-500 font-medium">
             Hiển thị <b>{filteredTopics.length}</b> chủ đề phù hợp
           </span>
-          {filterDate && (
+          {(filterPeriod !== 'all' || filterDate) && (
             <button
-              onClick={() => setFilterDate('')}
+              onClick={() => {
+                setFilterPeriod('all');
+                setFilterDate('');
+              }}
               className="text-xs font-bold text-blue-600 hover:text-blue-800"
             >
-              Xóa lọc ngày
+              Xóa bộ lọc buổi
             </button>
           )}
         </div>
@@ -510,21 +526,23 @@ export const TopicManagementPage: React.FC = () => {
           </span>
         </div>
 
-        <div className="custom-horizontal-scrollbar p-1 pb-3">
-          <table className="w-full text-left border-collapse min-w-[1250px]">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/90 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
+        <div className="custom-horizontal-scrollbar overflow-x-auto max-h-[72vh] overflow-y-auto rounded-b-3xl relative">
+          <table className="w-full text-left border-collapse min-w-[1300px]">
+            <thead className="sticky top-0 z-30 shadow-xs">
+              <tr className="bg-slate-100/95 backdrop-blur-md border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">
                 <th className="py-3.5 px-4 whitespace-nowrap">#</th>
                 <th className="py-3.5 px-4 whitespace-nowrap min-w-[280px]">Tên chủ đề bài học</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Lớp</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Môn học</th>
-                <th className="py-3.5 px-4 whitespace-nowrap">Buổi / Ngày</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Buổi học</th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Trắc nghiệm đủ ĐK</th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Tự luận đủ ĐK</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Trạng thái</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Người tạo</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Cập nhật</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">Thao tác</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 top-0 bg-slate-100/95 backdrop-blur-md z-40 shadow-[-8px_0_12px_rgba(0,0,0,0.06)]">
+                  Thao tác
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
@@ -533,7 +551,7 @@ export const TopicManagementPage: React.FC = () => {
                 const hasEligibleQuestions = mcqCount > 0 || essayCount > 0;
 
                 return (
-                  <tr key={topic.id} className="hover:bg-slate-50/60 transition-colors">
+                  <tr key={topic.id} className="group hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-semibold text-slate-400 whitespace-nowrap">{idx + 1}</td>
                     
                     {/* Tên chủ đề bài học trên 1 dòng - rút gọn thông minh có tooltip đầy đủ */}
@@ -561,12 +579,16 @@ export const TopicManagementPage: React.FC = () => {
                       <span className="whitespace-nowrap">{topic.subject_name}</span>
                     </td>
 
-                    {/* Buổi / Ngày: 1 dòng */}
-                    <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap">
+                    {/* Buổi học: 1 chữ số (Buổi 1, 2, 3... 15) */}
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="font-semibold text-slate-700">{new Date(topic.session_date).toLocaleDateString('vi-VN')}</span>
-                        {topic.period_number && (
-                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">• Tiết {topic.period_number}</span>
+                        <span className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 font-extrabold text-xs whitespace-nowrap">
+                          Buổi {topic.period_number || 1}
+                        </span>
+                        {topic.session_date && (
+                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                            {new Date(topic.session_date).toLocaleDateString('vi-VN')}
+                          </span>
                         )}
                       </div>
                     </td>
@@ -629,23 +651,32 @@ export const TopicManagementPage: React.FC = () => {
                       {new Date(topic.updated_at).toLocaleDateString('vi-VN')}
                     </td>
 
-                    {/* Actions: 1 dòng */}
-                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                    {/* Actions: Cột Thao tác dính sticky right-0 bám theo khi lướt trái/phải và lên/xuống */}
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 bg-white group-hover:bg-slate-50/95 shadow-[-8px_0_12px_rgba(0,0,0,0.06)] z-20 transition-colors">
                       <div className="inline-flex items-center gap-1 whitespace-nowrap">
                         {/* Open Button: Mở giáo án dạng trang Word & Trình chiếu giảng dạy */}
                         <button
                           onClick={() => setTeachingModalTopic(topic)}
                           title="Open: Mở giáo án điện tử dạng Word & Chế độ Giảng dạy cho học sinh"
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-lg shadow-2xs hover:shadow-sm transition-all active:scale-95 cursor-pointer mr-1 whitespace-nowrap"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 rounded-lg shadow-2xs hover:shadow-sm transition-all active:scale-95 cursor-pointer mr-0.5 whitespace-nowrap"
                         >
                           <BookOpen className="w-3.5 h-3.5 shrink-0" />
                           <span>Open</span>
                         </button>
 
+                        {/* Icon: Quản lý câu hỏi theo chủ đề (Cuốn sách và dấu ?) */}
+                        <button
+                          onClick={() => setManageQuestionsTopic(topic)}
+                          title={`Quản lý câu hỏi theo chủ đề (${topic.question_ids?.length || 0} câu)`}
+                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <BookQuestionIcon className="w-4 h-4" />
+                        </button>
+
                         <button
                           onClick={() => setDetailTopic(topic)}
-                          title="Xem chi tiết"
-                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="Xem chi tiết chủ đề"
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -653,15 +684,16 @@ export const TopicManagementPage: React.FC = () => {
                         <button
                           onClick={() => handleOpenEditForm(topic)}
                           title="Chỉnh sửa chủ đề"
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
 
+                        {/* Nút Nhân bản: tự động copy toàn bộ chi tiết và tăng Buổi học = Buổi học cũ + 1 */}
                         <button
-                          onClick={() => handleDuplicateTopic(topic.id)}
-                          title="Sao chép chủ đề"
-                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          onClick={() => handleDuplicateTopic(topic)}
+                          title={`Nhân bản (Sao chép toàn bộ thông tin môn/chủ đề & Buổi học tự động: ${(topic.period_number || 1) + 1})`}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
@@ -669,7 +701,7 @@ export const TopicManagementPage: React.FC = () => {
                         <button
                           onClick={() => handleQuickDraft(topic)}
                           title={topic.status === 'draft' ? 'Đổi sang Đã hoàn thiện' : 'Lưu sang Bản nháp'}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Clock className="w-3.5 h-3.5" />
                         </button>
@@ -677,7 +709,7 @@ export const TopicManagementPage: React.FC = () => {
                         <button
                           onClick={() => handleDeleteTopic(topic)}
                           title="Xóa chủ đề"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -708,7 +740,7 @@ export const TopicManagementPage: React.FC = () => {
         <Modal
           isOpen={true}
           onClose={() => setIsFormOpen(false)}
-          title={editingTopicId ? 'Chỉnh sửa chủ đề bài học (Màn hình 111)' : 'Thêm mới chủ đề bài học (Màn hình 111)'}
+          title={editingTopicId ? 'Chỉnh sửa chủ đề bài học' : 'Thêm mới chủ đề bài học'}
         >
           <form onSubmit={handleSubmitForm} className="space-y-5 text-xs">
             {formWarningDuplicate && (
@@ -760,29 +792,36 @@ export const TopicManagementPage: React.FC = () => {
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
-                  Buổi học / Ngày học <span className="text-rose-500">*</span>
+                  Buổi học <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={formPeriod}
+                  onChange={(e) => setFormPeriod(Math.max(1, parseInt(e.target.value) || 1))}
+                  placeholder="Ví dụ: 1, 2, 3... 15"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  Nhập số buổi học (1 chữ số: 1, 2, 3, 4, 5... 15)
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Ngày học
                 </label>
                 <input
                   type="date"
                   value={formDate}
                   onChange={(e) => setFormDate(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:ring-2 focus:ring-blue-500"
-                  required
                 />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Tiết học trong thời khóa biểu
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={formPeriod}
-                  onChange={(e) => setFormPeriod(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800"
-                />
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  Ngày diễn ra buổi học
+                </span>
               </div>
             </div>
 
@@ -1135,8 +1174,13 @@ export const TopicManagementPage: React.FC = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Buổi học:</span>
-                <span className="font-semibold text-slate-700">
-                  {new Date(detailTopic.session_date).toLocaleDateString('vi-VN')} (Tiết {detailTopic.period_number || 1})
+                <span className="font-bold text-indigo-700">
+                  Buổi {detailTopic.period_number || 1}
+                  {detailTopic.session_date && (
+                    <span className="font-normal text-slate-500 ml-1.5">
+                      • {new Date(detailTopic.session_date).toLocaleDateString('vi-VN')}
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -1224,6 +1268,74 @@ export const TopicManagementPage: React.FC = () => {
             showToast('success', 'Đã lưu và cập nhật nội dung giáo án thành công!');
           }}
         />
+      )}
+
+      {/* Quản lý câu hỏi theo chủ đề (Màn hình chi tiết câu hỏi & ngân hàng) */}
+      {manageQuestionsTopic && (
+        <TopicQuestionsModal
+          topic={manageQuestionsTopic}
+          allQuestions={questions}
+          onClose={() => setManageQuestionsTopic(null)}
+          onTopicUpdated={(updated) => {
+            setTopics((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            setManageQuestionsTopic(updated);
+            showToast('success', 'Đã cập nhật câu hỏi cho chủ đề thành công!');
+          }}
+        />
+      )}
+
+      {/* ================= MODAL: XÁC NHẬN XÓA CHỦ ĐỀ ================= */}
+      {deletingTopic && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDeletingTopic(null)}
+          title="Xác nhận xóa chủ đề bài học"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-100 text-rose-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-extrabold text-rose-900 text-sm">
+                  Bạn có chắc chắn muốn xóa chủ đề này không?
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  Chủ đề <b className="text-slate-900">"{deletingTopic.title}"</b> (Buổi {deletingTopic.period_number || 1} • {deletingTopic.class_name} • {deletingTopic.subject_name}) sẽ bị xóa hoàn toàn khỏi danh sách bài dạy.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-slate-600">
+              <p className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Thông tin lưu ý:</span>
+              </p>
+              <ul className="list-disc list-inside text-[11px] text-slate-500 space-y-1 pl-1">
+                <li>Các câu hỏi trong ngân hàng vẫn được bảo toàn nguyên vẹn.</li>
+                <li>Nội dung giáo án điện tử của chủ đề này sẽ được dọn dẹp khỏi hệ thống.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingTopic(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl font-bold text-slate-700 transition-colors cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xác nhận xóa</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

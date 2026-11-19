@@ -204,6 +204,14 @@ export const AppRoutes: React.FC = () => {
           }
         />
         <Route
+          path="/teacher/assignments/new"
+          element={
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <AssignmentCreateFromBank />
+            </RoleGuard>
+          }
+        />
+        <Route
           path="/teacher/assignments/create-quick"
           element={
             <RoleGuard allowedRoles={['teacher', 'admin']}>
@@ -216,6 +224,22 @@ export const AppRoutes: React.FC = () => {
           element={
             <RoleGuard allowedRoles={['teacher', 'admin']}>
               <AssignmentDetail />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/teacher/assignments/:id/submissions/:sid"
+          element={
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <AssignmentDetail />
+            </RoleGuard>
+          }
+        />
+        <Route
+          path="/teacher/assignments/:id/reports"
+          element={
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <AssignmentDetail viewMode="report" />
             </RoleGuard>
           }
         />

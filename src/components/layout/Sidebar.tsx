@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
+import { SmartClassLogo } from '../common/SmartClassLogo';
 import {
-  GraduationCap,
   LayoutDashboard,
   Users,
   BookOpen,
@@ -218,6 +218,9 @@ const getModulesForRole = (role: string): ModuleSection[] => {
   return teacherModules;
 };
 
+const FIXED_SIDEBAR_WIDTH = 290;
+const FIXED_FONT_SCALE = (280 / 256).toFixed(5); // Size chữ mặc định tương ứng zoom 280px
+
 export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   onCloseMobile
@@ -225,6 +228,64 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const asideRef = useRef<HTMLElement | null>(null);
+  const navScrollRef = useRef<HTMLDivElement | null>(null);
+  const edgeSpeedRef = useRef<number>(0);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    asideRef.current?.style.setProperty('--sidebar-w', `${FIXED_SIDEBAR_WIDTH}px`);
+    asideRef.current?.style.setProperty('--sidebar-scale', FIXED_FONT_SCALE);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const stopEdgePan = () => {
+    edgeSpeedRef.current = 0;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  };
+
+  const runEdgePan = () => {
+    const el = navScrollRef.current;
+    if (!el || edgeSpeedRef.current === 0) {
+      rafRef.current = null;
+      return;
+    }
+    el.scrollLeft += edgeSpeedRef.current;
+    rafRef.current = requestAnimationFrame(runEdgePan);
+  };
+
+  const handleMouseEdgeMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    if (el.scrollWidth <= el.clientWidth + 1) {
+      stopEdgePan();
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    const edgeThreshold = 34;
+    const distLeft = e.clientX - rect.left;
+    const distRight = rect.right - e.clientX;
+
+    if (distRight >= 0 && distRight <= edgeThreshold) {
+      const intensity = 1 - distRight / edgeThreshold;
+      edgeSpeedRef.current = Math.max(2, Math.round(intensity * 9));
+      if (rafRef.current === null) rafRef.current = requestAnimationFrame(runEdgePan);
+    } else if (distLeft >= 0 && distLeft <= edgeThreshold && el.scrollLeft > 0) {
+      const intensity = 1 - distLeft / edgeThreshold;
+      edgeSpeedRef.current = -Math.max(2, Math.round(intensity * 9));
+      if (rafRef.current === null) rafRef.current = requestAnimationFrame(runEdgePan);
+    } else {
+      stopEdgePan();
+    }
+  };
 
   const currentModules = getModulesForRole(role);
   let homePath = '/teacher/dashboard';
@@ -295,22 +356,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar container */}
+      {/* Sidebar container (fixed 290px frame, fixed 280px font scale) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 w-64 bg-slate-950 text-white flex flex-col transition-transform duration-300 lg:translate-x-0 border-r border-slate-800/80 shadow-2xl ${
+        ref={asideRef}
+        style={
+          {
+            '--sidebar-w': `${FIXED_SIDEBAR_WIDTH}px`,
+            '--sidebar-scale': FIXED_FONT_SCALE
+          } as React.CSSProperties
+        }
+        className={`fixed top-0 bottom-0 left-0 z-40 w-72 lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:w-[290px] bg-slate-950 text-white flex flex-col border-r border-slate-800/80 shadow-2xl transition-transform duration-300 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand / Logo */}
-        <div className="h-16 flex items-center gap-3 px-5 border-b border-slate-800/80 bg-slate-950">
-          <div className="w-9 h-9 rounded-xl bg-linear-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="font-bold text-sm tracking-wide text-white leading-tight">
-              SmartClass
+        <div className="min-h-16 py-2.5 flex items-center gap-2.5 px-3 border-b border-slate-800/80 bg-[#070D20] overflow-hidden">
+          <SmartClassLogo
+            variant="dark"
+            size="md"
+            className="lg:w-[calc(36px*var(--sidebar-scale,1.09375))] lg:h-[calc(36px*var(--sidebar-scale,1.09375))]"
+          />
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <h1 className="font-bold text-sm lg:[font-size:calc(14px*var(--sidebar-scale,1.09375))] tracking-wide text-white leading-tight truncate">
+              Smart Class
             </h1>
-            <p className="text-[10px] text-blue-400 font-medium">Hệ thống Module số</p>
+            <p className="text-[9px] lg:[font-size:calc(9px*var(--sidebar-scale,1.09375))] tracking-[-0.015em] whitespace-nowrap truncate font-medium leading-snug bg-linear-to-r from-[#00D4FF] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent">
+              Hệ thống quản lý lớp học thông minh
+            </p>
           </div>
         </div>
 
@@ -320,15 +392,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             to={homePath}
             onClick={onCloseMobile}
             className={({ isActive }) =>
-              `flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+              `flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs lg:[font-size:calc(12px*var(--sidebar-scale,1.09375))] font-semibold transition-all ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
+                  ? 'bg-linear-to-r from-[#2563FF] to-[#713BFF] text-white shadow-sm shadow-[#2563FF]/30'
                   : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
               }`
             }
           >
-            <LayoutDashboard className="w-4 h-4 text-blue-400" />
-            <span>Tổng quan bảng điều khiển</span>
+            <LayoutDashboard className="w-4 h-4 lg:w-[calc(16px*var(--sidebar-scale,1.09375))] lg:h-[calc(16px*var(--sidebar-scale,1.09375))] text-blue-400 shrink-0" />
+            <span className="truncate">Tổng quan bảng điều khiển</span>
           </NavLink>
 
           {role === 'teacher' && (
@@ -336,26 +408,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
               to="/teacher/modules"
               onClick={onCloseMobile}
               className={({ isActive }) =>
-                `flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                `flex items-center justify-between px-3 py-2 rounded-xl text-xs lg:[font-size:calc(12px*var(--sidebar-scale,1.09375))] font-semibold transition-all ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
                 }`
               }
             >
-              <div className="flex items-center gap-2.5">
-                <FolderKanban className="w-4 h-4 text-indigo-400" />
-                <span>Trung tâm các Module</span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <FolderKanban className="w-4 h-4 lg:w-[calc(16px*var(--sidebar-scale,1.09375))] lg:h-[calc(16px*var(--sidebar-scale,1.09375))] text-indigo-400 shrink-0" />
+                <span className="truncate">Trung tâm các Module</span>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">
+              <span className="text-[10px] lg:[font-size:calc(10px*var(--sidebar-scale,1.09375))] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold shrink-0">
                 Hub
               </span>
             </NavLink>
           )}
         </div>
 
-        {/* Modular Navigation List */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
+        {/* Modular Navigation List (supports edge-hover horizontal scrolling without bottom slider bar) */}
+        <div
+          ref={navScrollRef}
+          onMouseMove={handleMouseEdgeMove}
+          onMouseLeave={stopEdgePan}
+          className="flex-1 overflow-y-auto overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden px-3 py-3"
+        >
+          <div className="space-y-3 min-w-full w-max">
           {currentModules.map((mod) => {
             const ModIcon = mod.icon;
             const isOpen = openModules[mod.id] ?? true;
@@ -380,25 +458,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      className={`w-7 h-7 lg:w-[calc(28px*var(--sidebar-scale,1))] lg:h-[calc(28px*var(--sidebar-scale,1))] rounded-lg flex items-center justify-center shrink-0 ${
                         isAnyItemActive
                           ? 'bg-blue-500/20 text-blue-300'
                           : 'bg-slate-800/80 text-slate-400 group-hover:text-slate-200'
                       }`}
                     >
-                      <ModIcon className="w-3.5 h-3.5" />
+                      <ModIcon className="w-3.5 h-3.5 lg:w-[calc(14px*var(--sidebar-scale,1))] lg:h-[calc(14px*var(--sidebar-scale,1))]" />
                     </div>
-                    <span className="text-xs font-bold text-slate-200 group-hover:text-white truncate">
+                    <span className="text-xs lg:[font-size:calc(12px*var(--sidebar-scale,1.09375))] font-bold text-slate-200 group-hover:text-white whitespace-nowrap">
                       {mod.title}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-md font-semibold bg-slate-800 text-slate-400">
+                  <div className="flex items-center gap-1.5 shrink-0 pl-2">
+                    <span className="text-[10px] lg:[font-size:calc(10px*var(--sidebar-scale,1.09375))] px-1.5 py-0.2 rounded-md font-semibold bg-slate-800 text-slate-400">
                       {mod.items.length}
                     </span>
                     <ChevronDown
-                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      className={`w-3.5 h-3.5 lg:w-[calc(14px*var(--sidebar-scale,1.09375))] lg:h-[calc(14px*var(--sidebar-scale,1.09375))] text-slate-400 transition-transform duration-200 ${
                         isOpen ? 'rotate-180' : 'rotate-0'
                       }`}
                     />
@@ -427,23 +505,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   [item.path]: !prev[item.path]
                                 }));
                               }}
-                              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                              className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs lg:[font-size:calc(12px*var(--sidebar-scale,1.09375))] font-semibold transition-all cursor-pointer ${
                                 isChildActive
                                   ? 'bg-purple-900/40 text-purple-200 border border-purple-500/30'
                                   : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <ItemIcon className={`w-3.5 h-3.5 shrink-0 ${isChildActive ? 'text-purple-400' : 'opacity-80'}`} />
-                                <span className="truncate">{item.label}</span>
+                                <ItemIcon className={`w-3.5 h-3.5 lg:w-[calc(14px*var(--sidebar-scale,1.09375))] lg:h-[calc(14px*var(--sidebar-scale,1.09375))] shrink-0 ${isChildActive ? 'text-purple-400' : 'opacity-80'}`} />
+                                <span className="whitespace-nowrap">{item.label}</span>
                               </div>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              <div className="flex items-center gap-1.5 shrink-0 pl-2">
+                                <span className="text-[9px] lg:[font-size:calc(9px*var(--sidebar-scale,1.09375))] px-1.5 py-0.2 rounded-full font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                                   {item.children!.length}
                                 </span>
                                 <ChevronDown
-                                  className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+                                  className={`w-3 h-3 lg:w-[calc(12px*var(--sidebar-scale,1.09375))] lg:h-[calc(12px*var(--sidebar-scale,1.09375))] text-slate-400 transition-transform duration-200 ${
                                     isSubOpen ? 'rotate-180' : 'rotate-0'
                                   }`}
                                 />
@@ -461,15 +539,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                       key={sub.path + sub.label}
                                       to={sub.path}
                                       onClick={onCloseMobile}
-                                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                                      className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs lg:[font-size:calc(12px*var(--sidebar-scale,1.09375))] font-medium transition-all ${
                                         isSubActive
-                                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
+                                          ? 'bg-gradient-to-r from-[#009ED0] to-[#2563EB] text-white font-bold shadow-xs'
                                           : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                                       }`}
                                     >
                                       <div className="flex items-center gap-2 min-w-0">
-                                        <SubIcon className={`w-3 h-3 shrink-0 ${isSubActive ? 'text-white' : 'text-slate-400'}`} />
-                                        <span className="truncate">{sub.label}</span>
+                                        <SubIcon className={`w-3 h-3 lg:w-[calc(12px*var(--sidebar-scale,1.09375))] lg:h-[calc(12px*var(--sidebar-scale,1.09375))] shrink-0 ${isSubActive ? 'text-white' : 'text-slate-400'}`} />
+                                        <span className="whitespace-nowrap">{sub.label}</span>
                                       </div>
                                     </NavLink>
                                   );
@@ -486,7 +564,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           to={item.path}
                           onClick={onCloseMobile}
                           className={({ isActive }) =>
-                            `flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                            `flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs lg:[font-size:calc(12px*var(--sidebar-scale,1.09375))] font-medium transition-all ${
                               isActive
                                 ? 'bg-blue-600 text-white font-semibold shadow-xs'
                                 : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
@@ -494,12 +572,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <ItemIcon className="w-3.5 h-3.5 shrink-0 opacity-80" />
-                            <span className="truncate">{item.label}</span>
+                            <ItemIcon className="w-3.5 h-3.5 lg:w-[calc(14px*var(--sidebar-scale,1.09375))] lg:h-[calc(14px*var(--sidebar-scale,1.09375))] shrink-0 opacity-80" />
+                            <span className="whitespace-nowrap">{item.label}</span>
                           </div>
 
                           {item.badge && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded-full font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                            <span className="text-[9px] lg:[font-size:calc(9px*var(--sidebar-scale,1.09375))] px-1.5 py-0.2 rounded-full font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0 ml-2">
                               {item.badge}
                             </span>
                           )}
@@ -511,12 +589,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             );
           })}
+          </div>
         </div>
 
         {/* Footer info */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/80 text-[11px] text-slate-500 flex items-center justify-between">
-          <span>SmartClass v2.5</span>
-          <span className="text-emerald-500 font-semibold flex items-center gap-1">
+        <div className="p-3 border-t border-slate-800 bg-slate-950/80 text-[11px] text-slate-500 flex items-center justify-between gap-2 whitespace-nowrap overflow-hidden">
+          <span className="truncate">SmartClass v2.5</span>
+          <span className="text-emerald-500 font-semibold flex items-center gap-1 shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             4 Phân Hệ Sẵn Sàng
           </span>
