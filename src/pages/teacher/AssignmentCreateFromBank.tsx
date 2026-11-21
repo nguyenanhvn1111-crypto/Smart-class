@@ -37,14 +37,14 @@ export const AssignmentCreateFromBank: React.FC = () => {
   // Form states (1-screen layout)
   const [asgType, setAsgType] = useState<'homework' | 'exam' | 'classwork'>('homework');
   const [title, setTitle] = useState('');
-  const [selectedClassIds, setSelectedClassIds] = useState<string[]>(['cls-ltai']);
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>(['cls-10a1']);
   const [isClassDropdownOpen, setIsClassDropdownOpen] = useState(false);
   const [subjectId, setSubjectId] = useState('sub-math');
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date(Date.now() + 7 * 86400000);
     return d.toISOString().slice(0, 16);
   });
-  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>(['top-gemini']);
+  const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>(['top-exp']);
 
   // Format, difficulty & question counts
   const [formatType, setFormatType] = useState<'both' | 'mcq_only' | 'essay_only'>('both');
@@ -117,31 +117,44 @@ export const AssignmentCreateFromBank: React.FC = () => {
     });
   };
 
-  // Filter topics for the selected classes & subject
+  const subjectLabelMap: Record<string, string> = {
+    'sub-math': 'Toán học',
+    'sub-lit': 'Ngữ Văn',
+    'sub-eng': 'Tiếng Anh',
+    'sub-phys': 'Vật Lý',
+    'sub-chem': 'Hóa học',
+    'sub-info': 'Tin học'
+  };
+  const currentSubjectLabel = subjectLabelMap[subjectId] || 'Toán học';
+
+  // Filter topics for the selected classes & subject (strictly matching selected subject, ready topics first)
   const availableTopics = useMemo(() => {
     let list = allTopics.filter(
       (t) =>
         (selectedClassIds.includes(t.class_id) || selectedClassIds.length === 0) &&
         (subjectId === 'all' || t.subject_id === subjectId) &&
-        t.status !== 'archived'
+        t.status !== 'archived' &&
+        t.status !== 'draft'
     );
-    if (list.length === 0) {
-      list = allTopics.filter((t) => t.subject_id === subjectId && t.status !== 'archived');
-    }
-    if (list.length === 0) {
-      list = allTopics.filter((t) => t.status !== 'archived');
+    if (list.length === 0 && subjectId !== 'all') {
+      list = allTopics.filter(
+        (t) => t.subject_id === subjectId && t.status !== 'archived' && t.status !== 'draft'
+      );
     }
     return list;
   }, [allTopics, selectedClassIds, subjectId]);
 
   // Keep selectedTopicIds aligned with availableTopics when subject/class changes
   useEffect(() => {
-    if (availableTopics.length === 0) return;
+    if (availableTopics.length === 0) {
+      setSelectedTopicIds((prev) => (prev.length === 0 ? prev : []));
+      return;
+    }
     const validIds = new Set(availableTopics.map((t) => t.id));
     setSelectedTopicIds((prev) => {
-      if (prev.length === 0) return prev;
       const kept = prev.filter((id) => validIds.has(id));
       if (kept.length > 0) return kept;
+      if (prev.length === 0) return prev;
       return [availableTopics[0].id];
     });
   }, [availableTopics]);
@@ -298,7 +311,7 @@ export const AssignmentCreateFromBank: React.FC = () => {
       return;
     }
     if (selectedTopicIds.length === 0) {
-      showToast('error', 'Vui lòng chọn ít nhất 1 chủ đề trong mục Liên kết với chủ đề môn học.');
+      showToast('error', `Vui lòng chọn ít nhất 1 chủ đề trong mục Những chủ đề thuộc môn ${currentSubjectLabel}.`);
       return;
     }
     if (totalShortage > 0) {
@@ -802,12 +815,12 @@ export const AssignmentCreateFromBank: React.FC = () => {
           />
         </div>
 
-        {/* HÀNG 3: Liên kết với chủ đề môn học (Vertical scrollbar + Tự động tính tổng & lọc trùng) */}
+        {/* HÀNG 3: Những chủ đề thuộc môn học đã chọn (Vertical scrollbar + Tự động tính tổng & lọc trùng) */}
         <div className="space-y-2 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-extrabold text-blue-600 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
               <Layers className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>Liên kết với chủ đề môn học</span>
+              <span>Những chủ đề thuộc môn {currentSubjectLabel}</span>
             </h3>
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
               <span>
@@ -928,7 +941,7 @@ export const AssignmentCreateFromBank: React.FC = () => {
           ) : (
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs whitespace-nowrap">
               <span className="font-bold text-slate-700 truncate">
-                Chưa tìm thấy chủ đề phù hợp cho môn học này
+                Chưa tìm thấy chủ đề nào thuộc môn {currentSubjectLabel}
               </span>
               <button
                 type="button"
