@@ -52,6 +52,7 @@ export const ImportQuestionsWizardModal: React.FC<ImportQuestionsWizardModalProp
   const [duplicateAction, setDuplicateAction] = useState<'skip' | 'overwrite' | 'add_new'>('skip');
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -129,10 +130,12 @@ export const ImportQuestionsWizardModal: React.FC<ImportQuestionsWizardModalProp
 
     setSelectedFile(file);
     setFileName(file.name);
+    setErrorMessage(null);
     parseFile(file);
   };
 
   const parseFile = async (file: File) => {
+    setErrorMessage(null);
     setIsProcessing(true);
     try {
       if (file.name.endsWith('.json')) {
@@ -149,7 +152,7 @@ export const ImportQuestionsWizardModal: React.FC<ImportQuestionsWizardModalProp
         processParsedData(jsonData);
       }
     } catch {
-      alert('Không thể đọc tệp dữ liệu. Vui lòng kiểm tra định dạng tệp chuẩn.');
+      setErrorMessage('Không thể đọc tệp dữ liệu. Vui lòng kiểm tra định dạng tệp chuẩn.');
       setIsProcessing(false);
     }
   };
@@ -354,6 +357,13 @@ export const ImportQuestionsWizardModal: React.FC<ImportQuestionsWizardModalProp
                   className="mt-4 text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
                 />
               </div>
+
+              {errorMessage && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-semibold text-rose-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
               {isProcessing && (
                 <div className="text-center py-4 text-xs text-emerald-600 font-bold flex items-center justify-center gap-2">

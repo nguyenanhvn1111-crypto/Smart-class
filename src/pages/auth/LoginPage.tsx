@@ -23,7 +23,7 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
-  const { login, loginWithGoogle, register } = useAuth();
+  const { user, login, loginWithGoogle, register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -124,12 +124,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
     }
   ];
 
+  const [pendingRoleRedirect, setPendingRoleRedirect] = useState(false);
+
   const redirectToRole = (role: UserRole) => {
     if (role === 'admin') navigate('/admin/dashboard');
     else if (role === 'student') navigate('/student/dashboard');
     else if (role === 'parent') navigate('/parent/dashboard');
     else navigate('/teacher/dashboard');
   };
+
+  useEffect(() => {
+    if (pendingRoleRedirect && user) {
+      setPendingRoleRedirect(false);
+      redirectToRole(user.role);
+    }
+  }, [pendingRoleRedirect, user]);
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,9 +148,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
     setIsLoading(false);
 
     if (success) {
-      const user = DEMO_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase());
-      const role = user?.role || 'teacher';
-      redirectToRole(role);
+      setPendingRoleRedirect(true);
     } else {
       setLoginError('Đăng nhập không thành công, vui lòng kiểm tra lại email.');
     }
@@ -334,7 +341,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
                     const success = await loginWithGoogle();
                     setIsLoading(false);
                     if (success) {
-                      navigate('/teacher/dashboard');
+                      setPendingRoleRedirect(true);
                     }
                   }}
                   disabled={isLoading}
@@ -578,7 +585,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ initialMode }) => {
                       const success = await loginWithGoogle();
                       setIsLoading(false);
                       if (success) {
-                        navigate('/teacher/dashboard');
+                        setPendingRoleRedirect(true);
                       }
                     }}
                     disabled={isLoading}

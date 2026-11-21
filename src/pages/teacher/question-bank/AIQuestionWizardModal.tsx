@@ -65,6 +65,7 @@ export const AIQuestionWizardModal: React.FC<AIQuestionWizardModalProps> = ({
 
   // Step 5: Save
   const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -84,6 +85,7 @@ export const AIQuestionWizardModal: React.FC<AIQuestionWizardModalProps> = ({
 
   // Step 3 Execution: Call AI
   const handleStartGeneration = async () => {
+    setErrorMessage(null);
     setStep(3);
     setIsGenerating(true);
     setGenerationProgress(20);
@@ -167,7 +169,7 @@ export const AIQuestionWizardModal: React.FC<AIQuestionWizardModalProps> = ({
       clearInterval(progressTimer);
       setIsGenerating(false);
       setStep(2);
-      alert('Không thể tạo câu hỏi lúc này. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại với cấu hình khác.');
+      setErrorMessage('Không thể tạo câu hỏi lúc này. Vui lòng kiểm tra lại kết nối mạng hoặc thử lại với cấu hình khác.');
     }
   };
 
@@ -352,6 +354,12 @@ export const AIQuestionWizardModal: React.FC<AIQuestionWizardModalProps> = ({
           {/* STEP 2: Cấu hình */}
           {step === 2 && (
             <div className="space-y-5 animate-in fade-in duration-150">
+              {errorMessage && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-xs font-semibold text-rose-800 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Môn học</label>

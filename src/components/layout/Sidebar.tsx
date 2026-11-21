@@ -29,7 +29,10 @@ import {
   ChevronRight,
   FolderKanban,
   UserCheck,
-  CheckCircle2
+  CheckCircle2,
+  SlidersHorizontal,
+  Monitor,
+  UserCog
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -117,7 +120,16 @@ const teacherModules: ModuleSection[] = [
       { label: 'Công cụ lớp học', path: '/teacher/tools', icon: Wrench },
       { label: 'Thông báo nhà trường', path: '/teacher/announcements', icon: Megaphone },
       { label: 'Báo cáo & Thống kê', path: '/teacher/reports', icon: BarChart3 },
-      { label: 'Cài đặt tài khoản', path: '/teacher/settings', icon: Settings }
+      {
+        label: 'Cài đặt',
+        path: '/teacher/settings',
+        icon: Settings,
+        children: [
+          { label: 'Cài đặt hệ thống', path: '/teacher/settings/system', icon: SlidersHorizontal },
+          { label: 'Cài đặt màn hình', path: '/teacher/settings/display', icon: Monitor },
+          { label: 'Cài đặt tài khoản', path: '/teacher/settings/account', icon: UserCog }
+        ]
+      }
     ]
   }
 ];
@@ -147,7 +159,17 @@ const studentNav: ModuleSection[] = [
       { label: 'Bảng điểm cá nhân', path: '/student/grades', icon: FileSpreadsheet },
       { label: 'Chuyên cần', path: '/student/attendance', icon: CalendarCheck },
       { label: 'Thành tích & Huy hiệu', path: '/student/rewards', icon: Award },
-      { label: 'Thông báo', path: '/student/announcements', icon: Megaphone }
+      { label: 'Thông báo', path: '/student/announcements', icon: Megaphone },
+      {
+        label: 'Cài đặt',
+        path: '/student/settings',
+        icon: Settings,
+        children: [
+          { label: 'Cài đặt hệ thống', path: '/student/settings/system', icon: SlidersHorizontal },
+          { label: 'Cài đặt màn hình', path: '/student/settings/display', icon: Monitor },
+          { label: 'Cài đặt tài khoản', path: '/student/settings/account', icon: UserCog }
+        ]
+      }
     ]
   }
 ];
@@ -170,13 +192,23 @@ const parentNav: ModuleSection[] = [
   },
   {
     id: 'prn-2',
-    title: 'Liên lạc & Thông tin',
+    title: 'Liên lạc & Tiện ích',
     icon: HeartHandshake,
     color: 'text-blue-400',
     activeColor: 'bg-blue-500/10 border-blue-500/40 text-blue-300',
     items: [
       { label: 'Thông báo nhà trường', path: '/parent/announcements', icon: Megaphone },
-      { label: 'Trao đổi với giáo viên', path: '/parent/messages', icon: HeartHandshake }
+      { label: 'Trao đổi với giáo viên', path: '/parent/messages', icon: HeartHandshake },
+      {
+        label: 'Cài đặt',
+        path: '/parent/settings',
+        icon: Settings,
+        children: [
+          { label: 'Cài đặt hệ thống', path: '/parent/settings/system', icon: SlidersHorizontal },
+          { label: 'Cài đặt màn hình', path: '/parent/settings/display', icon: Monitor },
+          { label: 'Cài đặt tài khoản', path: '/parent/settings/account', icon: UserCog }
+        ]
+      }
     ]
   }
 ];
@@ -206,7 +238,16 @@ const adminNav: ModuleSection[] = [
       { label: 'Phân quyền & RLS', path: '/admin/roles', icon: ShieldCheck },
       { label: 'Nhật ký bảo mật (Audit)', path: '/admin/audit', icon: History },
       { label: 'Báo cáo toàn trường', path: '/admin/reports', icon: BarChart3 },
-      { label: 'Cấu hình hệ thống', path: '/admin/settings', icon: Settings }
+      {
+        label: 'Cài đặt',
+        path: '/admin/settings',
+        icon: Settings,
+        children: [
+          { label: 'Cài đặt hệ thống', path: '/admin/settings/system', icon: SlidersHorizontal },
+          { label: 'Cài đặt màn hình', path: '/admin/settings/display', icon: Monitor },
+          { label: 'Cài đặt tài khoản', path: '/admin/settings/account', icon: UserCog }
+        ]
+      }
     ]
   }
 ];
@@ -311,9 +352,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     'adm-2': true
   });
 
-  // Submenu states for items with children (e.g. Giao bài tập)
+  // Submenu states for items with children (e.g. Giao bài tập, Cài đặt)
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    '/teacher/assignments': true
+    '/teacher/assignments': true,
+    '/teacher/settings': true,
+    '/student/settings': true,
+    '/parent/settings': true,
+    '/admin/settings': true
   });
 
   // Automatically keep current module and submenu expanded when navigating
@@ -336,6 +381,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     if (location.pathname.startsWith('/teacher/assignments')) {
       setOpenSubmenus((prev) => ({ ...prev, '/teacher/assignments': true }));
+    }
+    const settingsBase = `/${role}/settings`;
+    if (location.pathname.startsWith(settingsBase)) {
+      setOpenSubmenus((prev) => ({ ...prev, [settingsBase]: true }));
     }
   }, [location.pathname, role]);
 
@@ -437,8 +486,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {currentModules.map((mod) => {
             const ModIcon = mod.icon;
             const isOpen = openModules[mod.id] ?? true;
-            const isAnyItemActive = mod.items.some((item) =>
-              location.pathname.startsWith(item.path)
+            const isAnyItemActive = mod.items.some(
+              (item) =>
+                location.pathname.startsWith(item.path) ||
+                Boolean(item.children?.some((c) => location.pathname.startsWith(c.path)))
             );
 
             return (
@@ -490,8 +541,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       const ItemIcon = item.icon;
                       const hasChildren = Boolean(item.children && item.children.length > 0);
                       const isSubOpen = openSubmenus[item.path] ?? false;
-                      const isChildActive = hasChildren && item.children!.some(
-                        (sub) => location.pathname === sub.path || (sub.path === '/teacher/assignments' && location.pathname === '/teacher/assignments')
+                      const isChildActive = hasChildren && (
+                        location.pathname === item.path ||
+                        item.children!.some((sub) => location.pathname === sub.path)
                       );
 
                       if (hasChildren) {

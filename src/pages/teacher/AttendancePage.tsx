@@ -4,6 +4,7 @@ import { DataService } from '../../services/dataService';
 import { Student, AttendanceStatus, AttendanceSession } from '../../types';
 import { StatusChip } from '../../components/common/StatusChip';
 import { Drawer } from '../../components/common/Drawer';
+import { UserAvatar } from '../../components/common/UserAvatar';
 import {
   CalendarCheck,
   CheckCircle2,
@@ -292,12 +293,9 @@ export const AttendancePage: React.FC = () => {
                 {/* Student Info */}
                 <div className="flex items-center gap-3 min-w-[220px]">
                   <span className="w-6 text-xs font-bold text-slate-400">#{index + 1}</span>
-                  <img
-                    src={
-                      student.avatar_url ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
-                    }
-                    alt={student.full_name}
+                  <UserAvatar
+                    src={student.avatar_url}
+                    name={student.full_name}
                     className="w-10 h-10 rounded-full object-cover ring-2 ring-slate-100"
                   />
                   <div>

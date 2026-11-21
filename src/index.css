@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   body {
@@ -6,7 +7,21 @@
     color: #0f172a;
     background-color: #f8fafc;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 180ms ease, color 180ms ease;
   }
+
+  html.dark body {
+    color: #f1f5f9;
+    background-color: #090d16;
+  }
+}
+
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* Custom scrollbar for modern feel */
@@ -19,13 +34,25 @@
   background: #f1f5f9;
 }
 
+html.dark ::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+
 ::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 9999px;
 }
 
+html.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* Explicit horizontal scrollbar for wide tables with sticky action columns */

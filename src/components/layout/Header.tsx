@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { UserRole } from '../../types';
+import { UserAvatar } from '../common/UserAvatar';
 import {
   Bell,
   Search,
@@ -35,6 +36,30 @@ export const Header: React.FC<HeaderProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+        setShowRoleMenu(false);
+        setShowQuickCreate(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowUserMenu(false);
+        setShowRoleMenu(false);
+        setShowQuickCreate(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   const roles: { key: UserRole; label: string; color: string; desc: string }[] = [
     { key: 'teacher', label: 'Giáo viên', color: 'bg-blue-600', desc: 'Quản lý giảng dạy, TKB, điểm danh' },
@@ -44,19 +69,19 @@ export const Header: React.FC<HeaderProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between shadow-2xs">
+    <header ref={headerRef} className="sticky top-0 z-30 h-16 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between shadow-2xs transition-colors">
       {/* Left section: Global Search */}
       <div className="flex items-center gap-3">
         {/* Global Search trigger */}
         <button
           type="button"
           onClick={onOpenSearch}
-          className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-100/80 hover:bg-slate-200/60 rounded-xl text-slate-500 text-xs sm:text-sm transition-all border border-transparent hover:border-slate-300/60 w-36 sm:w-64"
+          className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-xl text-slate-500 dark:text-slate-300 text-xs sm:text-sm transition-all border border-transparent hover:border-slate-300/60 dark:hover:border-slate-700 w-36 sm:w-64"
         >
           <Search className="w-4 h-4 text-slate-400" />
           <span className="hidden sm:inline">Tìm kiếm nhanh...</span>
           <span className="sm:hidden">Tìm...</span>
-          <kbd className="hidden sm:inline-block ml-auto text-[10px] bg-white text-slate-400 font-mono px-1.5 py-0.5 rounded-md border border-slate-200">
+          <kbd className="hidden sm:inline-block ml-auto text-[10px] bg-white dark:bg-slate-900 text-slate-400 font-mono px-1.5 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
             ⌘K
           </kbd>
         </button>
@@ -68,8 +93,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             type="button"
-            onClick={() => setShowRoleMenu(!showRoleMenu)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200/80 border border-slate-200/80 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs transition-colors cursor-pointer"
+            onClick={() => {
+              setShowRoleMenu(!showRoleMenu);
+              setShowQuickCreate(false);
+              setShowUserMenu(false);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-slate-200/80 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 shadow-2xs transition-colors cursor-pointer"
             title="Bấm để đổi vai trò nhanh"
           >
             <div
@@ -83,8 +112,8 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'bg-rose-600 ring-2 ring-rose-300'
               }`}
             />
-            <span className="text-slate-500 hidden sm:inline font-medium">Vai trò:</span>
-            <span className="font-bold text-slate-900">
+            <span className="text-slate-500 dark:text-slate-400 hidden sm:inline font-medium">Vai trò:</span>
+            <span className="font-bold text-slate-900 dark:text-slate-100">
               {roles.find((r) => r.key === role)?.label || 'Giáo viên'}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
@@ -92,14 +121,14 @@ export const Header: React.FC<HeaderProps> = ({
 
           {showRoleMenu && (
             <div
-              className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+              className="absolute right-0 mt-2 w-64 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
               onClick={() => setShowRoleMenu(false)}
             >
-              <div className="px-3.5 py-1.5 border-b border-slate-100 mb-1">
+              <div className="px-3.5 py-1.5 border-b border-slate-100 dark:border-slate-800 mb-1">
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
                   Chuyển nhanh vai trò
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   Chọn vai trò để chuyển không gian làm việc
                 </p>
               </div>
@@ -121,8 +150,8 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className={`w-full text-left px-3.5 py-2 text-xs flex items-center justify-between gap-2 transition-colors ${
                       isCurrent
-                        ? 'bg-indigo-50/70 text-indigo-900 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50 font-medium'
+                        ? 'bg-indigo-50/70 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 font-bold'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
@@ -133,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
                     {isCurrent && (
-                      <span className="text-[10px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded-md">
+                      <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-200 font-bold px-1.5 py-0.5 rounded-md">
                         Đang chọn
                       </span>
                     )}
@@ -149,7 +178,11 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="relative">
             <button
               type="button"
-              onClick={() => setShowQuickCreate(!showQuickCreate)}
+              onClick={() => {
+                setShowQuickCreate(!showQuickCreate);
+                setShowRoleMenu(false);
+                setShowUserMenu(false);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white rounded-xl text-xs sm:text-sm font-medium transition-all shadow-xs"
             >
               <Plus className="w-4 h-4" />
@@ -159,7 +192,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {showQuickCreate && (
               <div
-                className="absolute right-0 mt-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
                 onClick={() => setShowQuickCreate(false)}
               >
                 <div className="px-3 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -167,35 +200,35 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <button
                   onClick={() => navigate('/teacher/attendance')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
                 >
                   <CalendarCheck className="w-4 h-4 text-blue-600" />
                   <span>Điểm danh hôm nay</span>
                 </button>
                 <button
                   onClick={() => navigate('/teacher/assignments/create')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
                 >
                   <FilePlus className="w-4 h-4 text-purple-600" />
                   <span>Giao bài tập mới</span>
                 </button>
                 <button
                   onClick={() => navigate('/teacher/quizzes/create')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
                 >
                   <Award className="w-4 h-4 text-amber-600" />
                   <span>Tạo bài kiểm tra / Quiz</span>
                 </button>
                 <button
                   onClick={() => navigate('/teacher/ai')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
                 >
                   <Sparkles className="w-4 h-4 text-pink-600" />
                   <span>AI Trợ lý giáo án</span>
                 </button>
                 <button
                   onClick={() => navigate('/teacher/classes/create')}
-                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 hover:bg-blue-50 flex items-center gap-2.5 transition-colors"
+                  className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-800 flex items-center gap-2.5 transition-colors"
                 >
                   <BookOpen className="w-4 h-4 text-emerald-600" />
                   <span>Thêm lớp học</span>
@@ -209,12 +242,12 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={onOpenNotifications}
-          className="relative p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+          className="relative p-2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
           title="Thông báo"
         >
           <Bell className="w-5 h-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
           )}
         </button>
 
@@ -222,16 +255,20 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             type="button"
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 transition-colors"
+            onClick={() => {
+              setShowUserMenu(!showUserMenu);
+              setShowRoleMenu(false);
+              setShowQuickCreate(false);
+            }}
+            className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
-            <img
-              src={user?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-              alt={user?.full_name || 'User'}
+            <UserAvatar
+              src={user?.avatar_url}
+              name={user?.full_name || 'Người dùng'}
               className="w-8 h-8 rounded-full object-cover ring-2 ring-blue-500/30"
             />
             <div className="hidden md:block text-left">
-              <p className="text-xs font-semibold text-slate-900 leading-tight">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-tight">
                 {user?.full_name || 'Người dùng'}
               </p>
               <p className="text-[10px] text-slate-400 capitalize">{role}</p>
@@ -241,15 +278,15 @@ export const Header: React.FC<HeaderProps> = ({
 
           {showUserMenu && (
             <div
-              className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
+              className="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-800 py-2 z-50 animate-in fade-in zoom-in-95 duration-150"
               onClick={() => setShowUserMenu(false)}
             >
-              <div className="px-4 py-2 border-b border-slate-100">
-                <p className="text-xs font-semibold text-slate-800">{user?.full_name}</p>
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{user?.full_name}</p>
                 <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className="text-[10px] text-slate-400 font-medium">Vai trò:</span>
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300">
                     {roles.find((r) => r.key === role)?.label || role}
                   </span>
                 </div>
@@ -257,25 +294,25 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={() => navigate(`/${role}/profile`)}
-                className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                className="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
               >
                 <User className="w-4 h-4 text-slate-400" />
                 <span>Hồ sơ cá nhân</span>
               </button>
               <button
-                onClick={() => navigate(`/${role}/settings`)}
-                className="w-full text-left px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                onClick={() => navigate(`/${role}/settings/account`)}
+                className="w-full text-left px-4 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2"
               >
                 <Settings className="w-4 h-4 text-slate-400" />
                 <span>Cài đặt tài khoản</span>
               </button>
-              <div className="border-t border-slate-100 my-1" />
+              <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
               <button
                 onClick={() => {
                   logout();
                   navigate('/login');
                 }}
-                className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2"
+                className="w-full text-left px-4 py-2 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4 text-rose-500" />
                 <span>Đăng xuất</span>

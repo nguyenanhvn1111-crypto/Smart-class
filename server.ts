@@ -637,6 +637,23 @@ Nếu question_type là "essay" hoặc "short_answer": options là mảng rỗng
       server: { middlewareMode: true },
       appType: 'spa',
     });
+
+    if (process.env.DISABLE_HMR === 'true') {
+      app.get('/@vite/client', async (_req: Request, res: Response, next) => {
+        try {
+          const result = await vite.transformRequest('/@vite/client');
+          if (!result?.code) return next();
+          const patchedCode = result.code
+            .replace('console.debug("[vite] connecting...");', '')
+            .replace('transport.connect(createHMRHandler(handleMessage));', '/* HMR disabled */');
+          res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+          res.send(patchedCode);
+        } catch {
+          next();
+        }
+      });
+    }
+
     app.use(vite.middlewares);
   } else {
     const distPath = path.resolve(import.meta.dirname, 'dist');

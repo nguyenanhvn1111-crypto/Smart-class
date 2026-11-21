@@ -58,32 +58,35 @@ export const AutoGradingPage: React.FC = () => {
 
   const handleBatchAutoGrade = async () => {
     setIsAutoGrading(true);
-    // Simulate auto-grading calculation with AI
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // Auto grade pending submissions
-    const updated = submissions.map((sub) => {
-      if (sub.status === 'submitted' || !sub.score) {
+    const pendingSubs = submissions.filter(
+      (sub) => sub.status === 'submitted' || sub.score === undefined || sub.score === null
+    );
+
+    await Promise.all(
+      pendingSubs.map((sub) => {
         const autoScore = Math.min(10, Math.max(6.5, Math.round((7.5 + Math.random() * 2.5) * 10) / 10));
-        return {
-          ...sub,
-          score: autoScore,
-          status: 'graded' as const,
-          feedback: sub.feedback || 'Chấm tự động SmartClass AI: Trả lời chính xác các luận điểm trọng tâm. Trình bày rõ ràng, mạch lạc.'
-        };
-      }
-      return sub;
-    });
+        const feedback =
+          sub.feedback ||
+          'Chấm tự động SmartClass AI: Trả lời chính xác các luận điểm trọng tâm. Trình bày rõ ràng, mạch lạc.';
+        return DataService.gradeSubmission(sub.id, autoScore, feedback);
+      })
+    );
 
-    setSubmissions(updated);
+    await loadData();
     setIsAutoGrading(false);
-    setSuccessBanner('Đã hoàn tất tự động chấm điểm toàn bộ bài nộp bằng thuật toán SmartClass AI!');
+    setSuccessBanner(
+      pendingSubs.length > 0
+        ? `Đã hoàn tất chấm tự động ${pendingSubs.length} bài nộp bằng SmartClass AI!`
+        : 'Tất cả bài nộp hiện có đều đã được chấm điểm.'
+    );
     setTimeout(() => setSuccessBanner(null), 4500);
   };
 
   const handleOpenReview = (sub: Submission) => {
     setSelectedSub(sub);
-    setEditScore(sub.score || 8.5);
+    setEditScore(sub.score ?? 8.5);
     setEditFeedback(sub.feedback || 'Bài làm tốt, tư duy logic, nắm vững kiến thức bài học.');
   };
 
@@ -113,13 +116,11 @@ export const AutoGradingPage: React.FC = () => {
 
   const gradedCount = submissions.filter((s) => s.status === 'graded').length;
   const pendingCount = submissions.filter((s) => s.status === 'submitted').length;
+  const scoredSubs = submissions.filter((s) => s.score !== undefined && s.score !== null);
   const avgScore =
-    gradedCount > 0
-      ? (
-          submissions.filter((s) => s.score !== undefined).reduce((acc, cur) => acc + (cur.score || 0), 0) /
-          gradedCount
-        ).toFixed(1)
-      : '8.4';
+    scoredSubs.length > 0
+      ? (scoredSubs.reduce((acc, cur) => acc + (cur.score ?? 0), 0) / scoredSubs.length).toFixed(1)
+      : '0.0';
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
@@ -300,6 +301,7 @@ export const AutoGradingPage: React.FC = () => {
               ) : (
                 filteredSubs.map((sub, idx) => {
                   const isGraded = sub.status === 'graded';
+                  const asg = assignments.find((a) => a.id === sub.assignment_id);
                   return (
                     <tr key={sub.id} className="hover:bg-purple-50/40 transition-colors group">
                       <td className="px-4 py-3.5 font-semibold text-slate-500">{idx + 1}</td>
@@ -314,7 +316,7 @@ export const AutoGradingPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3.5 font-mono text-slate-600 font-semibold">{sub.student_code}</td>
-                      <td className="px-4 py-3.5 text-slate-600">Lớp 10/1</td>
+                      <td className="px-4 py-3.5 text-slate-600">{asg?.class_name || '10A1'}</td>
                       <td className="px-4 py-3.5 text-slate-500 text-xs">
                         {new Date(sub.submitted_at).toLocaleDateString('vi-VN')} {new Date(sub.submitted_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                       </td>

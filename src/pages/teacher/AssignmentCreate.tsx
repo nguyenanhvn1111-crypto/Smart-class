@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useClass } from '../../contexts/ClassContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { DataService } from '../../services/dataService';
 import { aiAssistant } from '../../services/aiService';
 import {
@@ -11,13 +12,23 @@ import {
   Save,
   CheckCircle2,
   Paperclip,
-  Upload
+  Upload,
+  AlertCircle,
+  X
 } from 'lucide-react';
+
+const SUBJECT_NAMES: Record<string, string> = {
+  'sub-math': 'Toán Học',
+  'sub-lit': 'Ngữ Văn',
+  'sub-eng': 'Tiếng Anh',
+  'sub-phys': 'Vật Lý'
+};
 
 const DRAFT_KEY = 'smartclass_assignment_draft';
 
 export const AssignmentCreate: React.FC = () => {
   const { classes, selectedClassId } = useClass();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -27,8 +38,10 @@ export const AssignmentCreate: React.FC = () => {
   const [pointsMax, setPointsMax] = useState(10);
   const [allowLate, setAllowLate] = useState(true);
   const [description, setDescription] = useState('');
+  const [attachments, setAttachments] = useState<{ name: string; url: string; size?: string }[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [draftSavedTime, setDraftSavedTime] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Restore draft if available
   useEffect(() => {
@@ -57,14 +70,28 @@ export const AssignmentCreate: React.FC = () => {
     return () => clearInterval(interval);
   }, [title, description, classId, subjectId, dueDate]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newItems = files.map((file) => ({
+      name: file.name,
+      url: URL.createObjectURL(file),
+      size: `${Math.max(1, Math.round(file.size / 1024))} KB`
+    }));
+    setAttachments((prev) => [...prev, ...newItems]);
+    e.target.value = '';
+  };
+
   const handleGenerateAI = async () => {
     setIsAiLoading(true);
+    setFormError(null);
     try {
+      const subjectName = SUBJECT_NAMES[subjectId] || 'Toán Học';
       const res = await aiAssistant.generateAssignment({
-        subject: 'Toán Học',
-        topic: title || 'Hệ phương trình bậc nhất ba ẩn',
+        subject: subjectName,
+        topic: title || `Chuyên đề ${subjectName}`,
         gradeLevel: 'Khối 10',
-        objectives: 'Rèn luyện kỹ năng giải hệ phương trình và ứng dụng bài toán thực tế'
+        objectives: 'Rèn luyện kỹ năng giải bài tập trọng tâm và vận dụng thực tế'
       });
       if (res.title && !title) setTitle(res.title);
       setDescription(res.description);
@@ -75,26 +102,28 @@ export const AssignmentCreate: React.FC = () => {
 
   const handleSubmit = async (status: 'published' | 'draft') => {
     if (!title.trim()) {
-      alert('Vui lòng nhập tiêu đề bài tập');
+      setFormError('Vui lòng nhập tiêu đề bài tập.');
       return;
     }
+    setFormError(null);
 
     const cls = classes.find((c) => c.id === classId);
-    const subjectName = subjectId === 'sub-math' ? 'Toán Học' : 'Ngữ Văn';
+    const subjectName = SUBJECT_NAMES[subjectId] || 'Toán Học';
 
     await DataService.createAssignment({
       class_id: classId,
       class_name: cls?.name || '10A1',
       subject_id: subjectId,
       subject_name: subjectName,
-      teacher_id: 'user-teacher-1',
-      teacher_name: 'Cô Trần Thị Mai',
-      title,
+      teacher_id: user?.id || 'user-teacher-1',
+      teacher_name: user?.full_name || 'Cô Trần Thị Mai',
+      title: title.trim(),
       description,
       due_date: new Date(dueDate).toISOString(),
       points_max: Number(pointsMax),
       status,
-      allow_late: allowLate
+      allow_late: allowLate,
+      attachments: attachments.map(({ name, url }) => ({ name, url }))
     });
 
     localStorage.removeItem(DRAFT_KEY);
@@ -129,6 +158,12 @@ export const AssignmentCreate: React.FC = () => {
       </div>
 
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+        {formError && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{formError}</span>
+          </div>
+        )}
         {/* Title */}
         <div>
           <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -243,14 +278,42 @@ export const AssignmentCreate: React.FC = () => {
         </div>
 
         {/* File Attachments */}
-        <div>
+        <div className="space-y-2">
           <label className="block text-xs font-semibold text-slate-700 mb-1">
             Tài liệu đính kèm (File bài giảng, PDF hướng dẫn)
           </label>
-          <div className="p-4 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center gap-2 cursor-pointer hover:border-blue-500 text-slate-500 text-xs transition-colors">
+          <label className="p-4 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-center gap-2 cursor-pointer hover:border-blue-500 text-slate-500 text-xs transition-colors">
             <Upload className="w-4 h-4" />
             <span>Kéo thả file đính kèm hoặc nhấp để tải lên</span>
-          </div>
+            <input
+              type="file"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </label>
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {attachments.map((file, idx) => (
+                <span
+                  key={`${file.name}-${idx}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-xl text-xs font-medium"
+                >
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span className="truncate max-w-[200px]">{file.name}</span>
+                  {file.size && <span className="text-[10px] text-blue-500">({file.size})</span>}
+                  <button
+                    type="button"
+                    onClick={() => setAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                    className="text-blue-500 hover:text-rose-600 ml-1"
+                    title="Gỡ tệp"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}

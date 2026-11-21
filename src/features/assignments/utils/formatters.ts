@@ -77,13 +77,13 @@ export function getReceiveStatusMeta(
     if (options.allowLate === false) {
       return {
         label: 'Đã hết hạn',
-        className: 'text-rose-300 bg-rose-500/15 border-rose-500/40',
+        className: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800',
         isPastDueOpen: true
       };
     }
     return {
       label: 'Quá hạn · Nhận muộn',
-      className: 'text-amber-300 bg-amber-500/15 border-amber-500/40',
+      className: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800',
       isPastDueOpen: true
     };
   }
@@ -92,28 +92,28 @@ export function getReceiveStatusMeta(
     case 'open':
       return {
         label: 'Đang nhận bài',
-        className: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/40'
+        className: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800'
       };
     case 'scheduled':
       return {
         label: 'Chưa mở',
-        className: 'text-cyan-300 bg-cyan-500/15 border-cyan-500/40'
+        className: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800'
       };
     case 'closed':
       return {
         label: 'Đã đóng nhận',
-        className: 'text-amber-300 bg-amber-500/15 border-amber-500/40'
+        className: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800'
       };
     case 'withdrawn':
       return {
         label: 'Đã thu hồi',
-        className: 'text-rose-300 bg-rose-500/15 border-rose-500/40'
+        className: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800'
       };
     case 'draft':
     default:
       return {
         label: 'Bản nháp',
-        className: 'text-slate-300 bg-slate-500/15 border-slate-500/40'
+        className: 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
       };
   }
 }
@@ -125,18 +125,18 @@ export function getSubmissionStatusMeta(isSubmitted: boolean, isLate: boolean): 
   if (!isSubmitted) {
     return {
       label: 'Chưa nộp',
-      className: 'text-slate-300 bg-slate-600/20 border-slate-500/40'
+      className: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
     };
   }
   if (isLate) {
     return {
       label: 'Nộp muộn',
-      className: 'text-rose-300 bg-rose-500/15 border-rose-500/40'
+      className: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800'
     };
   }
   return {
     label: 'Đã nộp',
-    className: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/40'
+    className: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800'
   };
 }
 
@@ -148,23 +148,23 @@ export function getGradeStatusMeta(status: GradeStatus): {
     case 'published':
       return {
         label: 'Đã chấm · Đã trả',
-        className: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/40'
+        className: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800'
       };
     case 'graded':
       return {
         label: 'Đã chấm (Chưa trả)',
-        className: 'text-cyan-300 bg-cyan-500/15 border-cyan-500/40'
+        className: 'text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border-blue-200 dark:border-blue-800'
       };
     case 'draft_grade':
       return {
         label: 'Chấm nháp',
-        className: 'text-amber-300 bg-amber-500/15 border-amber-500/40'
+        className: 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800'
       };
     case 'ungraded':
     default:
       return {
         label: 'Chưa chấm',
-        className: 'text-slate-300 bg-slate-600/25 border-slate-500/40'
+        className: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
       };
   }
 }

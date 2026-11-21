@@ -54,6 +54,7 @@ export const TabImportQuestions: React.FC<TabImportQuestionsProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 1. Download templates
   const handleDownloadTemplate = (type: 'excel' | 'csv' | 'word') => {
@@ -122,6 +123,7 @@ export const TabImportQuestions: React.FC<TabImportQuestionsProps> = ({
       a.href = url;
       a.download = 'Mau_Import_Cau_Hoi_CSV.csv';
       a.click();
+      URL.revokeObjectURL(url);
     } else {
       // Word (.doc template with V-Test format)
       const wordContent = `MẪU SOẠN THẢO CÂU HỎI NHẬP TỰ ĐỘNG (CHUẨN WORD / DOCX)
@@ -158,6 +160,7 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
       a.href = url;
       a.download = 'Mau_Import_Cau_Hoi_Word_Format.txt';
       a.click();
+      URL.revokeObjectURL(url);
     }
   };
 
@@ -170,6 +173,7 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
     setFileName(file.name);
     setIsProcessing(true);
     setImportResult(null);
+    setErrorMessage(null);
 
     const isExcelOrCsv =
       file.name.endsWith('.xlsx') ||
@@ -187,7 +191,7 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
           const data: any[] = XLSX.utils.sheet_to_json(ws);
           processRows(data);
         } catch (err) {
-          alert('Lỗi đọc tệp Excel/CSV. Vui lòng kiểm tra lại định dạng tệp!');
+          setErrorMessage('Lỗi đọc tệp Excel/CSV. Vui lòng kiểm tra lại định dạng tệp!');
           setIsProcessing(false);
         }
       };
@@ -200,7 +204,7 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
           const text = evt.target?.result as string;
           parseWordOrTextContent(text || '');
         } catch (err) {
-          alert('Lỗi đọc tệp Word/Văn bản. Vui lòng thử lại!');
+          setErrorMessage('Lỗi đọc tệp Word/Văn bản. Vui lòng thử lại!');
           setIsProcessing(false);
         }
       };
@@ -386,10 +390,11 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
   // Execute import
   const handleExecuteImport = async () => {
     if (selectedIndices.length === 0) {
-      alert('Vui lòng chọn ít nhất một câu hỏi hợp lệ để nhập vào hệ thống!');
+      setErrorMessage('Vui lòng chọn ít nhất một câu hỏi hợp lệ để nhập vào hệ thống!');
       return;
     }
 
+    setErrorMessage(null);
     setIsProcessing(true);
     const toImport: Partial<Question>[] = [];
 
@@ -418,7 +423,7 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
       const res = await onImportSuccess(toImport);
       setImportResult(res);
     } catch (e) {
-      alert('Có lỗi xảy ra trong quá trình lưu câu hỏi!');
+      setErrorMessage('Có lỗi xảy ra trong quá trình lưu câu hỏi!');
     } finally {
       setIsProcessing(false);
     }
@@ -469,6 +474,14 @@ Lời giải: Tất cả các số chẵn lớn hơn 2 đều chia hết cho 2 n
           </div>
         </div>
       </div>
+
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex items-center gap-3 text-xs font-semibold text-rose-800">
+          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Main Upload Zone */}
       <div className="bg-white border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-2xl p-8 text-center transition-all bg-gray-50/50">

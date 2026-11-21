@@ -117,10 +117,17 @@ export const GradebookPage: React.FC = () => {
     e.preventDefault();
     if (!newItemName.trim()) return;
 
+    const subjectNameMap: Record<string, string> = {
+      'sub-math': 'Toán Học',
+      'sub-lit': 'Ngữ Văn',
+      'sub-eng': 'Tiếng Anh',
+      'sub-phys': 'Vật Lý'
+    };
+
     await DataService.createGradeItem({
       class_id: selectedClassId,
       subject_id: subject,
-      subject_name: 'Toán Học',
+      subject_name: subjectNameMap[subject] || 'Toán Học',
       category_id: newItemCategory,
       category_name:
         newItemCategory === 'gc-ck'
@@ -141,14 +148,14 @@ export const GradebookPage: React.FC = () => {
 
   // Export CSV
   const handleExportCSV = () => {
-    let csv = 'Mã HS,Họ và tên,' + gradeItems.map((g) => g.name).join(',') + ',Điểm TB\n';
+    let csv = 'Mã HS,Họ và tên,' + gradeItems.map((g) => `"${g.name}"`).join(',') + ',Điểm TB\n';
     students.forEach((stu) => {
       const rowScores = gradeItems.map((g) => matrix[`${stu.id}_${g.id}`] || '').join(',');
       const avg = calculateStudentAverage(stu.id);
       csv += `${stu.student_code},"${stu.full_name}",${rowScores},${avg}\n`;
     });
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -156,6 +163,7 @@ export const GradebookPage: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (

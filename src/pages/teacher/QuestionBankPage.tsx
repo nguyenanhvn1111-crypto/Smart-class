@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataService } from '../../services/dataService';
 import { Question, QuestionType, QuestionDifficulty, QuestionStatus } from '../../types';
 import { MathRenderer } from '../../components/common/MathRenderer';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import { QuestionDetailDrawer } from './question-bank/QuestionDetailDrawer';
 import { QuestionEditorModal } from './question-bank/QuestionEditorModal';
 import { AIQuestionWizardModal } from './question-bank/AIQuestionWizardModal';
@@ -79,6 +80,12 @@ export const QuestionBankPage: React.FC = () => {
   const [isAIWizardOpen, setIsAIWizardOpen] = useState(false);
   const [isImportWizardOpen, setIsImportWizardOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -187,12 +194,17 @@ export const QuestionBankPage: React.FC = () => {
     loadData();
   };
 
-  const handleDelete = async (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn chuyển câu hỏi này vào mục lưu trữ không?')) {
-      await DataService.deleteQuestion(id, true);
-      setIsDetailDrawerOpen(false);
-      loadData();
-    }
+  const handleDelete = (id: string) => {
+    setConfirmDialog({
+      title: 'Lưu trữ câu hỏi',
+      message: 'Bạn có chắc chắn muốn chuyển câu hỏi này vào mục lưu trữ không?',
+      confirmLabel: 'Chuyển vào lưu trữ',
+      onConfirm: async () => {
+        await DataService.deleteQuestion(id, true);
+        setIsDetailDrawerOpen(false);
+        loadData();
+      }
+    });
   };
 
   const handleUpdateStatus = async (id: string, status: any) => {
@@ -230,20 +242,30 @@ export const QuestionBankPage: React.FC = () => {
     loadData();
   };
 
-  const handleBulkArchive = async () => {
-    if (window.confirm(`Bạn có chắc chắn muốn lưu trữ ${selectedIds.length} câu hỏi đã chọn?`)) {
-      await DataService.batchUpdateQuestionStatus(selectedIds, 'archived');
-      setSelectedIds([]);
-      loadData();
-    }
+  const handleBulkArchive = () => {
+    setConfirmDialog({
+      title: 'Lưu trữ câu hỏi hàng loạt',
+      message: `Bạn có chắc chắn muốn lưu trữ ${selectedIds.length} câu hỏi đã chọn?`,
+      confirmLabel: 'Lưu trữ tất cả',
+      onConfirm: async () => {
+        await DataService.batchUpdateQuestionStatus(selectedIds, 'archived');
+        setSelectedIds([]);
+        loadData();
+      }
+    });
   };
 
-  const handleBulkDelete = async () => {
-    if (window.confirm(`Xóa vĩnh viễn ${selectedIds.length} câu hỏi đã chọn khỏi hệ thống?`)) {
-      await DataService.batchDeleteQuestions(selectedIds, false);
-      setSelectedIds([]);
-      loadData();
-    }
+  const handleBulkDelete = () => {
+    setConfirmDialog({
+      title: 'Xóa vĩnh viễn câu hỏi',
+      message: `Xóa vĩnh viễn ${selectedIds.length} câu hỏi đã chọn khỏi hệ thống? Hành động này không thể hoàn tác.`,
+      confirmLabel: 'Xóa vĩnh viễn',
+      onConfirm: async () => {
+        await DataService.batchDeleteQuestions(selectedIds, false);
+        setSelectedIds([]);
+        loadData();
+      }
+    });
   };
 
   const handleCreateQuizFromSelected = () => {
@@ -1163,6 +1185,22 @@ export const QuestionBankPage: React.FC = () => {
         questions={selectedIds.length > 0 ? questions.filter((q) => selectedIds.includes(q.id)) : filteredQuestions}
         selectedSubject={selectedSubject !== 'all' ? selectedSubject : 'Toán Học'}
         selectedGrade={selectedGrade !== 'all' ? selectedGrade : 'Khối 10'}
+      />
+
+      {/* CONFIRM DIALOG */}
+      <ConfirmDialog
+        isOpen={Boolean(confirmDialog)}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={async () => {
+          if (confirmDialog) {
+            await confirmDialog.onConfirm();
+            setConfirmDialog(null);
+          }
+        }}
+        title={confirmDialog?.title || ''}
+        message={confirmDialog?.message || ''}
+        confirmLabel={confirmDialog?.confirmLabel || 'Xác nhận'}
+        isDestructive={true}
       />
 
     </div>

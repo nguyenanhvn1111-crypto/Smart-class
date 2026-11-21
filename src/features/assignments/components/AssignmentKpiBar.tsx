@@ -30,9 +30,9 @@ export const AssignmentKpiBar: React.FC<AssignmentKpiBarProps> = ({
       sub: 'Trong phạm vi phụ trách',
       icon: BookOpen,
       active: isAllActive,
-      accentText: 'text-[#00D4FF]',
-      iconBg: 'bg-[#009ED0]/15 text-[#00D4FF] border-[#009ED0]/30',
-      activeRing: 'border-[#009ED0] ring-1 ring-[#009ED0]/40 bg-[#052740]'
+      accentText: 'text-blue-600 dark:text-blue-400',
+      iconBg: 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800',
+      activeRing: 'border-blue-500 ring-1 ring-blue-500/30 bg-blue-50/40 dark:bg-blue-950/40 shadow-xs'
     },
     {
       id: 'open' as const,
@@ -41,9 +41,9 @@ export const AssignmentKpiBar: React.FC<AssignmentKpiBarProps> = ({
       sub: 'Học sinh có thể nộp',
       icon: Clock,
       active: isOpenActive,
-      accentText: 'text-emerald-300',
-      iconBg: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-      activeRing: 'border-emerald-400 ring-1 ring-emerald-400/40 bg-[#052740]'
+      accentText: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800',
+      activeRing: 'border-emerald-500 ring-1 ring-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/40 shadow-xs'
     },
     {
       id: 'overdue' as const,
@@ -52,9 +52,9 @@ export const AssignmentKpiBar: React.FC<AssignmentKpiBarProps> = ({
       sub: 'Cần nhắc hoặc gia hạn',
       icon: AlertTriangle,
       active: isOverdueActive,
-      accentText: 'text-rose-300',
-      iconBg: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-      activeRing: 'border-rose-400 ring-1 ring-rose-400/40 bg-[#052740]'
+      accentText: 'text-rose-600 dark:text-rose-400',
+      iconBg: 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800',
+      activeRing: 'border-rose-500 ring-1 ring-rose-500/30 bg-rose-50/40 dark:bg-rose-950/40 shadow-xs'
     },
     {
       id: 'pending_grade' as const,
@@ -63,9 +63,9 @@ export const AssignmentKpiBar: React.FC<AssignmentKpiBarProps> = ({
       sub: 'Bài đã nộp chưa có điểm',
       icon: ClipboardCheck,
       active: isPendingActive,
-      accentText: 'text-amber-300',
-      iconBg: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-      activeRing: 'border-amber-400 ring-1 ring-amber-400/40 bg-[#052740]'
+      accentText: 'text-amber-600 dark:text-amber-400',
+      iconBg: 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-800',
+      activeRing: 'border-amber-500 ring-1 ring-amber-500/30 bg-amber-50/40 dark:bg-amber-950/40 shadow-xs'
     }
   ];
 
@@ -79,17 +79,17 @@ export const AssignmentKpiBar: React.FC<AssignmentKpiBarProps> = ({
             type="button"
             onClick={() => onApplyKpiFilter(card.id)}
             aria-pressed={card.active}
-            className={`text-left rounded-[12px] border p-3.5 sm:p-4 transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-[#009ED0] ${
+            className={`text-left rounded-[12px] border p-3.5 sm:p-4 transition-all duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-blue-600 ${
               card.active
                 ? card.activeRing
-                : 'bg-[#031C2E] border-[#064966] hover:border-[#009ED0]/70 hover:bg-[#042338]'
+                : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-blue-300 dark:hover:border-blue-500/60 hover:bg-slate-50/70 dark:hover:bg-slate-800/60'
             }`}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold text-slate-300 truncate">{card.label}</p>
+                <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 truncate">{card.label}</p>
                 {isLoading ? (
-                  <div className="h-7 w-14 mt-1.5 rounded bg-slate-700/60 animate-pulse" />
+                  <div className="h-7 w-14 mt-1.5 rounded bg-slate-200 dark:bg-slate-800 animate-pulse" />
                 ) : (
                   <p className={`text-2xl font-bold mt-1 tabular-nums ${card.accentText}`}>
                     {card.value}
@@ -103,7 +103,7 @@ export const AssignmentKpiBar: React.FC<AssignmentKpiBarProps> = ({
                 <Icon className="w-4 h-4" />
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 mt-1.5 truncate">{card.sub}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5 truncate">{card.sub}</p>
           </button>
         );
       })}

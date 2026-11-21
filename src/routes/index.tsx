@@ -2,10 +2,11 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { RoleGuard } from '../components/common/RoleGuard';
+import { useAuth } from '../contexts/AuthContext';
 
 // Auth
 import { LoginPage } from '../pages/auth/LoginPage';
-import { UserProfilePage } from '../pages/common/UserProfilePage';
+import { SettingsPage } from '../pages/common/SettingsPage';
 
 // Teacher
 import { TeacherDashboard } from '../pages/teacher/TeacherDashboard';
@@ -54,6 +55,14 @@ import { AdminUsers } from '../pages/admin/AdminUsers';
 import { AdminAcademic } from '../pages/admin/AdminAcademic';
 import { AdminAuditLogs } from '../pages/admin/AdminAuditLogs';
 
+const RoleHomeRedirect: React.FC = () => {
+  const { role } = useAuth();
+  if (role === 'admin') return <Navigate to="/admin/dashboard" replace />;
+  if (role === 'student') return <Navigate to="/student/dashboard" replace />;
+  if (role === 'parent') return <Navigate to="/parent/dashboard" replace />;
+  return <Navigate to="/teacher/dashboard" replace />;
+};
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -63,8 +72,12 @@ export const AppRoutes: React.FC = () => {
 
       {/* Main Layout Protected Area */}
       <Route element={<AppLayout />}>
-        {/* Default redirect to teacher dashboard */}
-        <Route path="/" element={<Navigate to="/teacher/dashboard" replace />} />
+        {/* Default role-aware redirect */}
+        <Route path="/" element={<RoleHomeRedirect />} />
+        <Route path="/teacher" element={<Navigate to="/teacher/dashboard" replace />} />
+        <Route path="/student" element={<Navigate to="/student/dashboard" replace />} />
+        <Route path="/parent" element={<Navigate to="/parent/dashboard" replace />} />
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
         {/* TEACHER ROUTES */}
         <Route
@@ -339,8 +352,11 @@ export const AppRoutes: React.FC = () => {
             </RoleGuard>
           }
         />
-        <Route path="/teacher/profile" element={<UserProfilePage />} />
-        <Route path="/teacher/settings" element={<UserProfilePage />} />
+        <Route path="/teacher/profile" element={<SettingsPage defaultTab="account" />} />
+        <Route path="/teacher/settings" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/teacher/settings/system" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/teacher/settings/display" element={<SettingsPage defaultTab="display" />} />
+        <Route path="/teacher/settings/account" element={<SettingsPage defaultTab="account" />} />
 
         {/* STUDENT ROUTES */}
         <Route
@@ -415,8 +431,11 @@ export const AppRoutes: React.FC = () => {
             </RoleGuard>
           }
         />
-        <Route path="/student/profile" element={<UserProfilePage />} />
-        <Route path="/student/settings" element={<UserProfilePage />} />
+        <Route path="/student/profile" element={<SettingsPage defaultTab="account" />} />
+        <Route path="/student/settings" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/student/settings/system" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/student/settings/display" element={<SettingsPage defaultTab="display" />} />
+        <Route path="/student/settings/account" element={<SettingsPage defaultTab="account" />} />
 
         {/* PARENT ROUTES */}
         <Route
@@ -483,8 +502,11 @@ export const AppRoutes: React.FC = () => {
             </RoleGuard>
           }
         />
-        <Route path="/parent/profile" element={<UserProfilePage />} />
-        <Route path="/parent/settings" element={<UserProfilePage />} />
+        <Route path="/parent/profile" element={<SettingsPage defaultTab="account" />} />
+        <Route path="/parent/settings" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/parent/settings/system" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/parent/settings/display" element={<SettingsPage defaultTab="display" />} />
+        <Route path="/parent/settings/account" element={<SettingsPage defaultTab="account" />} />
 
         {/* ADMIN ROUTES */}
         <Route
@@ -551,8 +573,19 @@ export const AppRoutes: React.FC = () => {
             </RoleGuard>
           }
         />
-        <Route path="/admin/profile" element={<UserProfilePage />} />
-        <Route path="/admin/settings" element={<UserProfilePage />} />
+        <Route
+          path="/admin/announcements"
+          element={
+            <RoleGuard allowedRoles={['admin']}>
+              <AnnouncementsPage />
+            </RoleGuard>
+          }
+        />
+        <Route path="/admin/profile" element={<SettingsPage defaultTab="account" />} />
+        <Route path="/admin/settings" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/admin/settings/system" element={<SettingsPage defaultTab="system" />} />
+        <Route path="/admin/settings/display" element={<SettingsPage defaultTab="display" />} />
+        <Route path="/admin/settings/account" element={<SettingsPage defaultTab="account" />} />
       </Route>
 
       {/* 404 Catch All */}

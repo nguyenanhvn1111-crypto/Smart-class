@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Send, Phone, MessageSquare, User, CheckCircle2 } from 'lucide-react';
+import { UserAvatar } from '../../components/common/UserAvatar';
+import { Send, Phone } from 'lucide-react';
 
 export const ParentMessages: React.FC = () => {
   const [messages, setMessages] = useState([
@@ -53,9 +54,9 @@ export const ParentMessages: React.FC = () => {
         {/* Chat top header */}
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img
+            <UserAvatar
               src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100"
-              alt="Teacher"
+              name="Cô Trần Thị Mai"
               className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-500/20"
             />
             <div>

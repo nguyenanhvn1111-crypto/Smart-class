@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { DataService } from '../../services/dataService';
+import { useAuth } from '../../contexts/AuthContext';
 import { ResourceItem } from '../../types';
 import { SearchBox } from '../../components/common/SearchBox';
 import { Modal } from '../../components/common/Modal';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
+
+const SUBJECT_NAMES: Record<string, string> = {
+  'sub-math': 'Toán Học',
+  'sub-lit': 'Ngữ Văn',
+  'sub-eng': 'Tiếng Anh',
+  'sub-phys': 'Vật Lý'
+};
 import {
   FolderArchive,
   Upload,
@@ -19,6 +28,7 @@ import {
 } from 'lucide-react';
 
 export const ResourcesPage: React.FC = () => {
+  const { user } = useAuth();
   const [resources, setResources] = useState<ResourceItem[]>([]);
   const [search, setSearch] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('all');
@@ -31,6 +41,7 @@ export const ResourcesPage: React.FC = () => {
   const [subjectId, setSubjectId] = useState('sub-math');
   const [fileType, setFileType] = useState<'pdf' | 'docx' | 'pptx' | 'video' | 'link'>('pdf');
   const [description, setDescription] = useState('');
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   const loadResources = async () => {
     const list = await DataService.getResources();
@@ -58,10 +69,10 @@ export const ResourcesPage: React.FC = () => {
     await DataService.uploadResource({
       school_id: 'sch-001',
       subject_id: subjectId,
-      subject_name: subjectId === 'sub-math' ? 'Toán Học' : 'Vật Lý',
-      uploader_id: 'user-teacher-1',
-      uploader_name: 'Cô Trần Thị Mai',
-      title,
+      subject_name: SUBJECT_NAMES[subjectId] || 'Toán Học',
+      uploader_id: user?.id || 'user-teacher-1',
+      uploader_name: user?.full_name || 'Cô Trần Thị Mai',
+      title: title.trim(),
       description,
       topic,
       file_url: 'https://smartclass-storage.edu.vn/files/sample.pdf',
@@ -76,11 +87,15 @@ export const ResourcesPage: React.FC = () => {
     loadResources();
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) {
-      await DataService.deleteResource(id);
-      loadResources();
-    }
+  const handleDelete = (id: string) => {
+    setDeleteTargetId(id);
+  };
+
+  const confirmDeleteResource = async () => {
+    if (!deleteTargetId) return;
+    await DataService.deleteResource(deleteTargetId);
+    setDeleteTargetId(null);
+    loadResources();
   };
 
   const getFileIcon = (type: string) => {
@@ -283,6 +298,15 @@ export const ResourcesPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={Boolean(deleteTargetId)}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={confirmDeleteResource}
+        title="Xác nhận xóa tài liệu"
+        message="Bạn có chắc chắn muốn xóa tài liệu học tập này khỏi kho lưu trữ?"
+        confirmLabel="Xóa tài liệu"
+      />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { DataService, store } from '../../services/dataService';
 import { StatCard } from '../../components/common/StatCard';
 import { ChartCard } from '../../components/common/ChartCard';
 import { StatusChip } from '../../components/common/StatusChip';
+import { DailyNatureBanner } from '../../components/common/DailyNatureBanner';
 import { useDailyNatureClock } from '../../hooks/useDailyNatureClock';
 import {
   Users,
@@ -46,18 +47,9 @@ export const TeacherDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [todayAttendance, setTodayAttendance] = useState<any>(null);
-  const [bannerImgError, setBannerImgError] = useState(false);
 
-  const {
-    fullVietnameseDate,
-    weekdayName,
-    academicTermLabel,
-    dailyScene
-  } = useDailyNatureClock();
-
-  useEffect(() => {
-    setBannerImgError(false);
-  }, [dailyScene.id]);
+  const calendarInfo = useDailyNatureClock();
+  const { weekdayName } = calendarInfo;
 
   useEffect(() => {
     const loadData = async () => {
@@ -108,49 +100,16 @@ export const TeacherDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Welcome Banner with Daily Nature Scenery */}
-      <div className="relative overflow-hidden rounded-3xl p-6 sm:p-8 text-white shadow-lg bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900">
-        {!bannerImgError && (
-          <img
-            src={dailyScene.imageUrl}
-            alt={dailyScene.alt}
-            referrerPolicy="no-referrer"
-            onError={() => setBannerImgError(true)}
-            className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-500"
-          />
-        )}
-
-        {/* Measured contrast scrim so foreground text & controls meet WCAG AA over daylight or sunset nature scenes */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-900/60 to-slate-950/30"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/20"
-        />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
-          <div className="space-y-2 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-sm font-medium text-emerald-100/95 tabular-nums">
-              <span>{academicTermLabel}</span>
-              <span aria-hidden="true" className="text-white/50">·</span>
-              <span className="text-white font-semibold">{fullVietnameseDate}</span>
-            </div>
-
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white [text-wrap:balance]">
-              Xin chào, {user?.full_name || 'Thầy/Cô'}!
-            </h1>
-
-            <p className="text-sm text-slate-100/90 leading-relaxed max-w-xl">
-              Hôm nay lớp <span className="font-semibold text-white">10A1</span> có 2 tiết Toán và 1 bài kiểm tra 15 phút. Sĩ số có mặt đạt <span className="tabular-nums font-semibold text-white">95.8%</span>.
-            </p>
-
-            <p className="text-xs text-slate-200/80 pt-0.5">
-              Khung cảnh thiên nhiên hôm nay: {dailyScene.title}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+      <DailyNatureBanner
+        calendarInfo={calendarInfo}
+        title={`Xin chào, ${user?.full_name || 'Thầy/Cô'}!`}
+        description={
+          <>
+            Hôm nay lớp <span className="font-semibold text-white">10A1</span> có 2 tiết Toán và 1 bài kiểm tra 15 phút. Sĩ số có mặt đạt <span className="tabular-nums font-semibold text-white">95.8%</span>.
+          </>
+        }
+        actions={
+          <>
             <button
               onClick={() => navigate('/teacher/attendance')}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
@@ -165,9 +124,9 @@ export const TeacherDashboard: React.FC = () => {
               <Dices className="w-4 h-4 shrink-0" />
               <span>Công cụ lớp học</span>
             </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -211,20 +170,20 @@ export const TeacherDashboard: React.FC = () => {
         {/* Left column: Action Needed & Today's Schedule */}
         <div className="lg:col-span-2 space-y-6">
           {/* Action Needed Card */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
                   !
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-slate-900">Việc cần xử lý gấp</h3>
+                  <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Việc cần xử lý gấp</h3>
                   <p className="text-xs text-slate-400">Các cảnh báo và bài nộp cần được xử lý</p>
                 </div>
               </div>
               <button
                 onClick={() => navigate('/teacher/alerts')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 flex items-center gap-1"
               >
                 <span>Xem tất cả ({alerts.length})</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -236,7 +195,7 @@ export const TeacherDashboard: React.FC = () => {
                 <div
                   key={alert.id}
                   onClick={() => navigate('/teacher/alerts')}
-                  className="p-3.5 rounded-xl border border-slate-100 hover:border-amber-300 hover:bg-amber-50/30 transition-all flex items-start justify-between cursor-pointer"
+                  className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-amber-300 dark:hover:border-amber-600 hover:bg-amber-50/30 dark:hover:bg-amber-950/20 transition-all flex items-start justify-between cursor-pointer"
                 >
                   <div className="flex items-start gap-3">
                     <AlertTriangle
@@ -245,8 +204,8 @@ export const TeacherDashboard: React.FC = () => {
                       }`}
                     />
                     <div>
-                      <h4 className="text-xs font-semibold text-slate-900">{alert.title}</h4>
-                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">
+                      <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">{alert.title}</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
                         {alert.description}
                       </p>
                     </div>
@@ -258,52 +217,52 @@ export const TeacherDashboard: React.FC = () => {
           </div>
 
           {/* Today's Teaching Schedule */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="text-base font-semibold text-slate-900">Lịch dạy hôm nay ({weekdayName})</h3>
+                <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Lịch dạy hôm nay ({weekdayName})</h3>
               </div>
               <button
                 onClick={() => navigate('/teacher/schedule')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700"
               >
                 Thời khóa biểu tuần
               </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50">
-                <div className="flex justify-between items-center text-xs text-blue-700 font-semibold mb-1">
+              <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/40">
+                <div className="flex justify-between items-center text-xs text-blue-700 dark:text-blue-300 font-semibold mb-1">
                   <span>Tiết 1 - 2 (07:30 - 09:05)</span>
-                  <span className="bg-blue-200/70 text-blue-800 px-2 py-0.5 rounded-md text-[10px]">
+                  <span className="bg-blue-200/70 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-md text-[10px]">
                     Đang diễn ra
                   </span>
                 </div>
-                <h4 className="font-bold text-sm text-slate-900">Toán Học • Đại số</h4>
-                <p className="text-xs text-slate-600 mt-1">Lớp 10A1 • Phòng 201</p>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Toán Học • Đại số</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Lớp 10A1 • Phòng 201</p>
               </div>
 
-              <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                <div className="flex justify-between items-center text-xs text-slate-500 font-semibold mb-1">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50">
+                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1">
                   <span>Tiết 3 (09:25 - 10:10)</span>
-                  <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[10px]">
+                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-[10px]">
                     Sắp tới
                   </span>
                 </div>
-                <h4 className="font-bold text-sm text-slate-900">Toán Học • Luyện tập</h4>
-                <p className="text-xs text-slate-600 mt-1">Lớp 10A2 • Phòng 202</p>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Toán Học • Luyện tập</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Lớp 10A2 • Phòng 202</p>
               </div>
 
-              <div className="p-4 rounded-xl border border-slate-200 bg-white">
-                <div className="flex justify-between items-center text-xs text-slate-500 font-semibold mb-1">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-800/50">
+                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1">
                   <span>Tiết 4 (10:15 - 11:00)</span>
-                  <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md text-[10px]">
+                  <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md text-[10px]">
                     Sắp tới
                   </span>
                 </div>
-                <h4 className="font-bold text-sm text-slate-900">Sinh hoạt chủ nhiệm</h4>
-                <p className="text-xs text-slate-600 mt-1">Lớp 10A1 • Phòng 201</p>
+                <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100">Sinh hoạt chủ nhiệm</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Lớp 10A1 • Phòng 201</p>
               </div>
             </div>
           </div>
@@ -313,7 +272,7 @@ export const TeacherDashboard: React.FC = () => {
             title="Phổ điểm kiểm tra môn Toán"
             subtitle="Thống kê kết quả đánh giá thường xuyên của lớp"
           >
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={260} minWidth={0}>
               <BarChart data={gradeDistribution}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                 <XAxis dataKey="range" stroke="#64748B" fontSize={11} />
@@ -335,39 +294,39 @@ export const TeacherDashboard: React.FC = () => {
         {/* Right column: Quick Class Overview & Today's Attendance breakdown */}
         <div className="space-y-6">
           {/* Quick Actions Panel */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
-            <h3 className="text-sm font-semibold text-slate-900 mb-3">Lối tắt thao tác</h3>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3">Lối tắt thao tác</h3>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => navigate('/teacher/attendance')}
-                className="p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/30 text-left transition-all group"
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-blue-400 hover:bg-blue-50/30 dark:hover:bg-blue-950/30 text-left transition-all group"
               >
-                <CalendarCheck className="w-5 h-5 text-blue-600 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-800 block">Điểm danh</span>
+                <CalendarCheck className="w-5 h-5 text-blue-600 dark:text-blue-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">Điểm danh</span>
                 <span className="text-[10px] text-slate-400">Ghi nhận sĩ số</span>
               </button>
               <button
                 onClick={() => navigate('/teacher/assignments/create')}
-                className="p-3 rounded-xl border border-slate-200 hover:border-purple-400 hover:bg-purple-50/30 text-left transition-all group"
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-purple-400 hover:bg-purple-50/30 dark:hover:bg-purple-950/30 text-left transition-all group"
               >
-                <FileText className="w-5 h-5 text-purple-600 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-800 block">Giao bài tập</span>
+                <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">Giao bài tập</span>
                 <span className="text-[10px] text-slate-400">Đính kèm tài liệu</span>
               </button>
               <button
                 onClick={() => navigate('/teacher/grades')}
-                className="p-3 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/30 text-left transition-all group"
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-emerald-400 hover:bg-emerald-50/30 dark:hover:bg-emerald-950/30 text-left transition-all group"
               >
-                <TrendingUp className="w-5 h-5 text-emerald-600 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-800 block">Sổ điểm</span>
+                <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">Sổ điểm</span>
                 <span className="text-[10px] text-slate-400">Nhập điểm nhanh</span>
               </button>
               <button
                 onClick={() => navigate('/teacher/ai')}
-                className="p-3 rounded-xl border border-slate-200 hover:border-pink-400 hover:bg-pink-50/30 text-left transition-all group"
+                className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-pink-400 hover:bg-pink-50/30 dark:hover:bg-pink-950/30 text-left transition-all group"
               >
-                <Sparkles className="w-5 h-5 text-pink-600 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="text-xs font-semibold text-slate-800 block">Trợ lý AI</span>
+                <Sparkles className="w-5 h-5 text-pink-600 dark:text-pink-400 mb-1.5 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-100 block">Trợ lý AI</span>
                 <span className="text-[10px] text-slate-400">Soạn đề & giáo án</span>
               </button>
             </div>
@@ -378,8 +337,8 @@ export const TeacherDashboard: React.FC = () => {
             title="Chuyên cần hôm nay"
             subtitle="Tỷ lệ học sinh hiện diện trong ngày"
           >
-            <div className="flex flex-col items-center">
-              <ResponsiveContainer width="100%" height={160}>
+            <div className="flex flex-col items-center w-full">
+              <ResponsiveContainer width="100%" height={160} minWidth={0}>
                 <PieChart>
                   <Pie
                     data={attendancePieData}
@@ -398,15 +357,15 @@ export const TeacherDashboard: React.FC = () => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex items-center justify-center gap-4 text-xs mt-2">
-                <span className="flex items-center gap-1.5 text-emerald-700">
+                <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                   Có mặt ({presentCount})
                 </span>
-                <span className="flex items-center gap-1.5 text-rose-700">
+                <span className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                   Nghỉ ({absentCount})
                 </span>
-                <span className="flex items-center gap-1.5 text-amber-700">
+                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
                   Muộn ({lateCount})
                 </span>
@@ -415,12 +374,12 @@ export const TeacherDashboard: React.FC = () => {
           </ChartCard>
 
           {/* Classes Overview Mini List */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-slate-900">Lớp đang phụ trách</h3>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lớp đang phụ trách</h3>
               <button
                 onClick={() => navigate('/teacher/classes')}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700"
               >
                 Tất cả
               </button>
@@ -435,12 +394,12 @@ export const TeacherDashboard: React.FC = () => {
                   }}
                   className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                     cls.id === selectedClassId
-                      ? 'border-blue-500 bg-blue-50/40 ring-1 ring-blue-500'
-                      : 'border-slate-100 hover:border-slate-300'
+                      ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-950/40 ring-1 ring-blue-500'
+                      : 'border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
                   <div>
-                    <h4 className="text-xs font-semibold text-slate-900">{cls.name}</h4>
+                    <h4 className="text-xs font-semibold text-slate-900 dark:text-slate-100">{cls.name}</h4>
                     <p className="text-[11px] text-slate-400">
                       Sĩ số: {cls.student_count} • Mã: {cls.join_code}
                     </p>

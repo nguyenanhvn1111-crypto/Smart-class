@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DataService } from '../../services/dataService';
 import { Quiz, Question } from '../../types';
+import { ConfirmDialog } from '../../components/common/ConfirmDialog';
 import confetti from 'canvas-confetti';
 import {
   Clock,
@@ -21,9 +22,15 @@ export const StudentQuizTaker: React.FC = () => {
   // Exam state
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const answersRef = useRef<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState(900); // 15 mins
   const [isCompleted, setIsCompleted] = useState(false);
   const [score, setScore] = useState<number | null>(null);
+  const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   useEffect(() => {
     DataService.getQuizzes('cls-10a1').then((qzs) => {
@@ -34,6 +41,34 @@ export const StudentQuizTaker: React.FC = () => {
       }
     });
   }, []);
+
+  const questions = activeQuiz?.questions || [];
+  const currentQ = questions[currentQuestionIndex];
+
+  const handleSelectAnswer = (qId: string, answerId: string) => {
+    setAnswers((prev) => {
+      const next = { ...prev, [qId]: answerId };
+      answersRef.current = next;
+      return next;
+    });
+  };
+
+  const handleSubmitExam = () => {
+    const latestAnswers = answersRef.current;
+    // Auto-grade single choice questions using latest ref so timer auto-submit doesn't capture stale answers
+    let totalScore = 0;
+    questions.forEach((q) => {
+      const studentAns = latestAnswers[q.id];
+      if (studentAns && studentAns === q.correct_answer) {
+        totalScore += q.points || 2.0;
+      }
+    });
+
+    setScore(totalScore);
+    setIsCompleted(true);
+    setShowConfirmSubmit(false);
+    confetti({ particleCount: 100, spread: 70 });
+  };
 
   // Timer countdown
   useEffect(() => {
@@ -50,31 +85,6 @@ export const StudentQuizTaker: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [activeQuiz, isCompleted]);
-
-  const questions = activeQuiz?.questions || [];
-  const currentQ = questions[currentQuestionIndex];
-
-  const handleSelectAnswer = (qId: string, answerId: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      [qId]: answerId
-    }));
-  };
-
-  const handleSubmitExam = () => {
-    // Auto-grade single choice questions
-    let totalScore = 0;
-    questions.forEach((q) => {
-      const studentAns = answers[q.id];
-      if (studentAns && studentAns === q.correct_answer) {
-        totalScore += q.points || 2.0;
-      }
-    });
-
-    setScore(totalScore);
-    setIsCompleted(true);
-    confetti({ particleCount: 100, spread: 70 });
-  };
 
   const formatTimer = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -131,7 +141,9 @@ export const StudentQuizTaker: React.FC = () => {
             <button
               onClick={() => {
                 setIsCompleted(false);
+                setScore(null);
                 setAnswers({});
+                answersRef.current = {};
                 setTimeLeft(activeQuiz.duration_minutes * 60);
                 setCurrentQuestionIndex(0);
               }}
@@ -269,11 +281,7 @@ export const StudentQuizTaker: React.FC = () => {
 
           <div className="pt-4 border-t border-slate-100">
             <button
-              onClick={() => {
-                if (confirm('Bạn có chắc chắn muốn nộp bài sớm?')) {
-                  handleSubmitExam();
-                }
-              }}
+              onClick={() => setShowConfirmSubmit(true)}
               className="w-full py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-all"
             >
               Nộp bài thi ngay
@@ -281,6 +289,16 @@ export const StudentQuizTaker: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showConfirmSubmit}
+        onClose={() => setShowConfirmSubmit(false)}
+        onConfirm={handleSubmitExam}
+        title="Xác nhận nộp bài"
+        message={`Bạn đã hoàn thành ${Object.keys(answers).length}/${questions.length} câu hỏi. Bạn có chắc chắn muốn nộp bài sớm?`}
+        confirmLabel="Nộp bài ngay"
+        isDestructive={false}
+      />
     </div>
   );
 };

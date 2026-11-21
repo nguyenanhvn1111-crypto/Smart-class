@@ -4,6 +4,7 @@ import { DataService, store } from '../../services/dataService';
 import { StatCard } from '../../components/common/StatCard';
 import { ChartCard } from '../../components/common/ChartCard';
 import { StatusChip } from '../../components/common/StatusChip';
+import { DailyNatureBanner } from '../../components/common/DailyNatureBanner';
 import {
   Building2,
   Users,
@@ -42,35 +43,30 @@ export const AdminDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-linear-to-r from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <span className="inline-block px-3 py-1 bg-white/10 backdrop-blur-md rounded-full text-xs font-semibold mb-2 text-indigo-300">
-            Hệ thống Quản trị Toàn trường • SmartClass Admin Portal
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Bảng điều khiển Quản trị viên
-          </h1>
-          <p className="mt-1 text-sm text-slate-300 max-w-xl">
-            Giám sát vận hành 1 trường học, 24 lớp, 45 giáo viên và toàn bộ cơ sở dữ liệu PostgreSQL / Supabase
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate('/admin/users')}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95"
-          >
-            Quản lý Người dùng
-          </button>
-          <button
-            onClick={() => navigate('/admin/audit')}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all"
-          >
-            Nhật ký Audit Log
-          </button>
-        </div>
-      </div>
+      {/* Top Banner with Daily Nature Scenery */}
+      <DailyNatureBanner
+        roleMeta="Quản trị Toàn trường · SmartClass Admin Portal"
+        title="Bảng điều khiển Quản trị viên"
+        description="Giám sát vận hành 1 trường học, 24 lớp, 45 giáo viên và toàn bộ cơ sở dữ liệu PostgreSQL / Supabase"
+        actions={
+          <>
+            <button
+              onClick={() => navigate('/admin/users')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-slate-900 hover:bg-slate-100 font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white cursor-pointer"
+            >
+              <Users className="w-4 h-4 shrink-0" />
+              <span>Quản lý Người dùng</span>
+            </button>
+            <button
+              onClick={() => navigate('/admin/audit')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-950/45 hover:bg-slate-950/65 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition-all active:scale-95 whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white cursor-pointer"
+            >
+              <History className="w-4 h-4 shrink-0" />
+              <span>Nhật ký Audit Log</span>
+            </button>
+          </>
+        }
+      />
 
       {/* Admin Stat Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -127,12 +123,12 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         {/* Security Audit quick card */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-slate-900">Nhật ký Audit gần nhất</h3>
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Nhật ký Audit gần nhất</h3>
             <button
               onClick={() => navigate('/admin/audit')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+              className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700"
             >
               Xem tất cả
             </button>
@@ -140,14 +136,14 @@ export const AdminDashboard: React.FC = () => {
 
           <div className="space-y-3">
             {store.auditLogs.slice(0, 4).map((log) => (
-              <div key={log.id} className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
+              <div key={log.id} className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-bold text-slate-900">{log.action}</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100">{log.action}</span>
                   <span className="text-[10px] text-slate-400">
                     {new Date(log.created_at).toLocaleTimeString('vi-VN')}
                   </span>
                 </div>
-                <p className="text-slate-600 line-clamp-2">{log.details}</p>
+                <p className="text-slate-600 dark:text-slate-400 line-clamp-2">{log.details}</p>
                 <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
                   <span>{log.user_name}</span>
                   <span className="font-mono">{log.ip_address}</span>

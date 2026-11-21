@@ -19,7 +19,8 @@ import {
   History,
   CheckCircle2,
   Flame,
-  UserCheck
+  UserCheck,
+  AlertCircle
 } from 'lucide-react';
 
 export const ToolsHubPage: React.FC = () => {
@@ -49,7 +50,13 @@ export const ToolsHubPage: React.FC = () => {
   const [initialSeconds, setInitialSeconds] = useState(300);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
   const timerRef = useRef<any>(null);
+
+  const showNotice = (msg: string) => {
+    setNoticeMessage(msg);
+    setTimeout(() => setNoticeMessage(null), 4000);
+  };
 
   useEffect(() => {
     DataService.getStudents(selectedClassId).then((stus) => {
@@ -92,7 +99,7 @@ export const ToolsHubPage: React.FC = () => {
       : students;
 
     if (pool.length === 0) {
-      alert('Tất cả học sinh trong danh sách đã được gọi! Vui lòng đặt lại lịch sử.');
+      showNotice('Tất cả học sinh trong danh sách đã được gọi! Vui lòng đặt lại lịch sử.');
       return;
     }
 
@@ -115,7 +122,7 @@ export const ToolsHubPage: React.FC = () => {
       : students;
 
     if (pool.length === 0) {
-      alert('Tất cả học sinh trong danh sách đã được gọi!');
+      showNotice('Tất cả học sinh trong danh sách đã được gọi! Vui lòng xóa lịch sử để quay tiếp.');
       return;
     }
 
@@ -127,8 +134,18 @@ export const ToolsHubPage: React.FC = () => {
 
   // GROUP GENERATOR
   const handleGenerateGroups = () => {
+    if (students.length === 0) {
+      showNotice('Lớp hiện chưa có danh sách học sinh để chia nhóm.');
+      return;
+    }
+    const safeInput = Math.max(1, Math.min(20, Math.floor(Number(groupCount)) || 2));
+    if (safeInput !== groupCount) setGroupCount(safeInput);
+
     const shuffled = [...students].sort(() => 0.5 - Math.random());
-    const count = groupMode === 'by_count' ? groupCount : Math.ceil(students.length / groupCount);
+    const count = Math.max(
+      1,
+      groupMode === 'by_count' ? Math.min(safeInput, students.length) : Math.ceil(students.length / safeInput)
+    );
     const groups: { id: number; members: Student[] }[] = Array.from({ length: count }, (_, i) => ({
       id: i + 1,
       members: []
@@ -153,24 +170,24 @@ export const ToolsHubPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Hộp Công cụ Lớp học (Tools Hub)
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Các tiện ích tương tác trực quan: Vòng quay may mắn, gọi tên ngẫu nhiên, chia nhóm và đồng hồ đếm ngược
           </p>
         </div>
 
         {/* Class selector */}
-        <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-          <span className="text-xs font-semibold text-slate-500">Lớp:</span>
+        <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Lớp:</span>
           <select
             value={selectedClassId}
             onChange={(e) => setSelectedClassId(e.target.value)}
-            className="text-xs font-bold text-blue-700 bg-transparent outline-hidden cursor-pointer"
+            className="text-xs font-bold text-blue-700 dark:text-blue-400 bg-transparent outline-hidden cursor-pointer"
           >
             {classes.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={c.id} className="dark:bg-slate-900 dark:text-slate-100">
                 {c.name}
               </option>
             ))}
@@ -178,14 +195,30 @@ export const ToolsHubPage: React.FC = () => {
         </div>
       </div>
 
+      {noticeMessage && (
+        <div className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 text-xs font-semibold">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>{noticeMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeMessage(null)}
+            className="text-amber-700 dark:text-amber-300 hover:underline cursor-pointer"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       {/* Tool switcher cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button
           onClick={() => setActiveTool('wheel')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
             activeTool === 'wheel'
               ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20 border-blue-600'
-              : 'bg-white border-slate-200 hover:border-slate-300'
+              : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <CircleDot className="w-6 h-6 mb-2" />
@@ -195,10 +228,10 @@ export const ToolsHubPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTool('random')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
             activeTool === 'random'
               ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20 border-purple-600'
-              : 'bg-white border-slate-200 hover:border-slate-300'
+              : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <Shuffle className="w-6 h-6 mb-2" />
@@ -208,10 +241,10 @@ export const ToolsHubPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTool('groups')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
             activeTool === 'groups'
               ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 border-emerald-600'
-              : 'bg-white border-slate-200 hover:border-slate-300'
+              : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <Users className="w-6 h-6 mb-2" />
@@ -221,10 +254,10 @@ export const ToolsHubPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTool('timer')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
+          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
             activeTool === 'timer'
               ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20 border-amber-600'
-              : 'bg-white border-slate-200 hover:border-slate-300'
+              : 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
           }`}
         >
           <Timer className="w-6 h-6 mb-2" />
@@ -235,7 +268,7 @@ export const ToolsHubPage: React.FC = () => {
 
       {/* TOOL 1: LUCKY WHEEL */}
       {activeTool === 'wheel' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs flex flex-col items-center justify-center min-h-[460px] relative overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col items-center justify-center min-h-[460px] relative overflow-hidden">
           <div className="max-w-md w-full text-center space-y-6">
             <div className="relative w-64 h-64 mx-auto flex items-center justify-center">
               {/* Outer decorative ring */}
@@ -254,11 +287,11 @@ export const ToolsHubPage: React.FC = () => {
 
             {/* Winner result */}
             {wheelWinner && (
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl animate-in zoom-in duration-300">
-                <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block">
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-2xl animate-in zoom-in duration-300">
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
                   Người được chọn
                 </span>
-                <span className="text-2xl font-extrabold text-emerald-900 mt-1 block">
+                <span className="text-2xl font-extrabold text-emerald-900 dark:text-emerald-100 mt-1 block">
                   {wheelWinner} 🎉
                 </span>
               </div>
@@ -268,26 +301,26 @@ export const ToolsHubPage: React.FC = () => {
               <button
                 onClick={handleSpinWheel}
                 disabled={isSpinning}
-                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-sm rounded-2xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50"
+                className="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-sm rounded-2xl shadow-lg shadow-blue-500/30 transition-all disabled:opacity-50 cursor-pointer"
               >
                 {isSpinning ? 'Đang quay...' : 'Quay bánh xe'}
               </button>
             </div>
 
             {/* Options */}
-            <div className="flex items-center justify-center gap-4 text-xs text-slate-500 pt-2">
+            <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2">
               <label className="flex items-center gap-2 cursor-pointer font-medium">
                 <input
                   type="checkbox"
                   checked={excludeCalled}
                   onChange={(e) => setExcludeCalled(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded-sm"
+                  className="w-4 h-4 accent-blue-600 rounded-sm"
                 />
                 <span>Loại bỏ học sinh đã gọi khỏi lượt tiếp</span>
               </label>
               <button
                 onClick={() => setCalledHistory([])}
-                className="text-blue-600 hover:underline font-semibold"
+                className="text-blue-600 dark:text-blue-400 hover:underline font-semibold cursor-pointer"
               >
                 Đặt lại danh sách ({calledHistory.length} đã gọi)
               </button>
@@ -298,28 +331,28 @@ export const ToolsHubPage: React.FC = () => {
 
       {/* TOOL 2: RANDOM PICKER */}
       {activeTool === 'random' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs flex flex-col items-center justify-center min-h-[420px]">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-slate-200/80 dark:border-slate-800 shadow-xs flex flex-col items-center justify-center min-h-[420px]">
           <div className="max-w-md w-full text-center space-y-6">
-            <div className="w-20 h-20 rounded-3xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto ring-8 ring-purple-50/50">
+            <div className="w-20 h-20 rounded-3xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center mx-auto ring-8 ring-purple-50/50 dark:ring-purple-950/30">
               <Shuffle className="w-10 h-10" />
             </div>
 
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Bốc thăm học sinh ngẫu nhiên</h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">Bốc thăm học sinh ngẫu nhiên</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Lựa chọn công bằng, không lặp lại học sinh trong cùng tiết học
               </p>
             </div>
 
             {randomWinner && (
-              <div className="p-6 bg-purple-50 border border-purple-200 rounded-3xl animate-in zoom-in duration-300">
-                <span className="text-xs font-bold text-purple-600 uppercase tracking-wider block">
+              <div className="p-6 bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 rounded-3xl animate-in zoom-in duration-300">
+                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">
                   Học sinh may mắn
                 </span>
-                <span className="text-3xl font-extrabold text-purple-900 mt-1 block">
+                <span className="text-3xl font-extrabold text-purple-900 dark:text-purple-100 mt-1 block">
                   {randomWinner.full_name}
                 </span>
-                <span className="text-xs text-purple-700/80 font-mono mt-1 block">
+                <span className="text-xs text-purple-700/80 dark:text-purple-300 font-mono mt-1 block">
                   Mã số: {randomWinner.student_code}
                 </span>
               </div>
@@ -327,16 +360,16 @@ export const ToolsHubPage: React.FC = () => {
 
             <button
               onClick={handlePickRandom}
-              className="px-8 py-3.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-sm rounded-2xl shadow-lg shadow-purple-500/30 transition-all"
+              className="px-8 py-3.5 bg-purple-600 hover:bg-purple-700 active:scale-95 text-white font-bold text-sm rounded-2xl shadow-lg shadow-purple-500/30 transition-all cursor-pointer"
             >
               Chọn ngẫu nhiên 1 bạn
             </button>
 
-            <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
+            <div className="flex items-center justify-center gap-4 text-xs text-slate-500 dark:text-slate-400">
               <span>Đã gọi: {calledHistory.length}/{students.length} học sinh</span>
               <button
                 onClick={() => setCalledHistory([])}
-                className="text-purple-600 hover:underline font-semibold"
+                className="text-purple-600 dark:text-purple-400 hover:underline font-semibold cursor-pointer"
               >
                 Xóa lịch sử
               </button>
@@ -347,31 +380,31 @@ export const ToolsHubPage: React.FC = () => {
 
       {/* TOOL 3: GROUP GENERATOR */}
       {activeTool === 'groups' && (
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">Chia nhóm học tập tự động</h3>
-              <p className="text-xs text-slate-500">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Chia nhóm học tập tự động</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Xáo trộn ngẫu nhiên danh sách {students.length} học sinh vào các nhóm đều nhau
               </p>
             </div>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-xs">
-                <span className="font-semibold text-slate-700">Số lượng nhóm:</span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">Số lượng nhóm:</span>
                 <input
                   type="number"
-                  min={2}
-                  max={10}
+                  min={1}
+                  max={20}
                   value={groupCount}
-                  onChange={(e) => setGroupCount(Number(e.target.value))}
-                  className="w-16 px-3 py-1.5 border border-slate-200 rounded-lg text-center font-bold"
+                  onChange={(e) => setGroupCount(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                  className="w-16 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-lg text-center font-bold"
                 />
               </div>
 
               <button
                 onClick={handleGenerateGroups}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
               >
                 <Shuffle className="w-4 h-4" />
                 <span>Chia nhóm ngay</span>
@@ -384,17 +417,17 @@ export const ToolsHubPage: React.FC = () => {
               {generatedGroups.map((grp) => (
                 <div
                   key={grp.id}
-                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3"
+                  className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/60 space-y-3"
                 >
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                    <span className="font-bold text-sm text-slate-800">Nhóm {grp.id}</span>
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                    <span className="font-bold text-sm text-slate-800 dark:text-slate-100">Nhóm {grp.id}</span>
+                    <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
                       {grp.members.length} thành viên
                     </span>
                   </div>
                   <ul className="space-y-1.5 text-xs">
                     {grp.members.map((m, i) => (
-                      <li key={m.id} className="flex items-center gap-2 text-slate-700">
+                      <li key={m.id} className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                         <span className="text-slate-400 font-mono w-4">{i + 1}.</span>
                         <span className="font-medium">{m.full_name}</span>
                       </li>
@@ -414,15 +447,19 @@ export const ToolsHubPage: React.FC = () => {
       {/* TOOL 4: COUNTDOWN TIMER */}
       {activeTool === 'timer' && (
         <div
-          className={`bg-white rounded-3xl p-6 sm:p-12 border border-slate-200/80 shadow-xs flex flex-col items-center justify-center ${
-            isFullscreen ? 'fixed inset-0 z-50 rounded-none bg-slate-950 text-white' : 'min-h-[460px]'
+          className={`rounded-3xl p-6 sm:p-12 border shadow-xs flex flex-col items-center justify-center ${
+            isFullscreen
+              ? 'fixed inset-0 z-50 rounded-none bg-slate-950 border-slate-800 text-white'
+              : 'min-h-[460px] bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
           }`}
         >
           <div className="max-w-md w-full text-center space-y-6">
             <div className="flex justify-end">
               <button
                 onClick={() => setIsFullscreen(!isFullscreen)}
-                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl"
+                className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                  isFullscreen ? 'text-slate-300 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                }`}
                 title="Toàn màn hình"
               >
                 {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
@@ -430,7 +467,11 @@ export const ToolsHubPage: React.FC = () => {
             </div>
 
             {/* Huge Time Display */}
-            <div className="font-mono text-6xl sm:text-7xl font-extrabold tracking-wider text-slate-900 select-none">
+            <div
+              className={`font-mono text-6xl sm:text-7xl font-extrabold tracking-wider select-none ${
+                isFullscreen ? 'text-white' : 'text-slate-900 dark:text-slate-100'
+              }`}
+            >
               {formatTime(timerSeconds)}
             </div>
 
@@ -440,10 +481,12 @@ export const ToolsHubPage: React.FC = () => {
                 <button
                   key={s}
                   onClick={() => handleStartTimer(s)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                     initialSeconds === s
                       ? 'bg-amber-600 text-white'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      : isFullscreen
+                      ? 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
                   }`}
                 >
                   {s / 60} phút
@@ -455,7 +498,7 @@ export const ToolsHubPage: React.FC = () => {
             <div className="flex items-center justify-center gap-4">
               <button
                 onClick={() => setIsTimerRunning(!isTimerRunning)}
-                className={`p-4 rounded-full text-white shadow-xl transition-all active:scale-95 ${
+                className={`p-4 rounded-full text-white shadow-xl transition-all active:scale-95 cursor-pointer ${
                   isTimerRunning ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-600 hover:bg-emerald-700'
                 }`}
               >
@@ -466,7 +509,11 @@ export const ToolsHubPage: React.FC = () => {
                   setIsTimerRunning(false);
                   setTimerSeconds(initialSeconds);
                 }}
-                className="p-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full transition-all"
+                className={`p-4 rounded-full transition-all cursor-pointer ${
+                  isFullscreen
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
                 title="Đặt lại"
               >
                 <RotateCcw className="w-6 h-6" />

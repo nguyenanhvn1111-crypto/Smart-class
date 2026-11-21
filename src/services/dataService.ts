@@ -629,7 +629,7 @@ export const DataService = {
     return newTopic;
   },
 
-  // HÀM TÍNH TOÁN CÂU HỎI ĐỦ ĐIỀU KIỆN CHO CÁC CHỦ ĐỀ ĐƯỢC CHỌN (KHÔNG LẤY TRÙNG)
+  // HÀM TÍNH TOÁN CÂU HỎI ĐỦ ĐIỀU KIỆN CHO CÁC CHỦ ĐỀ ĐƯỢC CHỌN (TỰ ĐỘNG LỌC TRÙNG LẶP GIỮA CÁC CHỦ ĐỀ)
   getEligibleQuestionsForTopics(
     topicIds: string[],
     filter?: {
@@ -640,54 +640,108 @@ export const DataService = {
     mcqEligible: Question[];
     essayEligible: Question[];
     allEligible: Question[];
+    stats: {
+      rawEligibleMcqSlots: number;
+      rawEligibleEssaySlots: number;
+      duplicateMcqRemoved: number;
+      duplicateEssayRemoved: number;
+      totalDuplicatesRemoved: number;
+      duplicateQuestionIds: string[];
+    };
   } {
     if (!topicIds || topicIds.length === 0) {
-      return { mcqEligible: [], essayEligible: [], allEligible: [] };
+      return {
+        mcqEligible: [],
+        essayEligible: [],
+        allEligible: [],
+        stats: {
+          rawEligibleMcqSlots: 0,
+          rawEligibleEssaySlots: 0,
+          duplicateMcqRemoved: 0,
+          duplicateEssayRemoved: 0,
+          totalDuplicatesRemoved: 0,
+          duplicateQuestionIds: []
+        }
+      };
     }
 
-    // 1. Gom tất cả question_ids từ các chủ đề đã chọn, loại trừ trùng lặp bằng Set
-    const uniqueQuestionIds = new Set<string>();
-    const selectedTopics = store.lessonTopics.filter((t) => topicIds.includes(t.id));
-
-    selectedTopics.forEach((t) => {
-      (t.question_ids || []).forEach((qid) => uniqueQuestionIds.add(qid));
+    const questionById = new Map<string, Question>();
+    store.questions.forEach((q) => {
+      if (!questionById.has(q.id)) {
+        questionById.set(q.id, q);
+      }
     });
 
-    // 2. Lấy danh sách câu hỏi từ ngân hàng câu hỏi
-    const rawQuestions = store.questions.filter((q) => uniqueQuestionIds.has(q.id));
-
-    // 3. Phân loại và lọc câu hỏi ĐỦ ĐIỀU KIỆN
-    // - Loại trừ câu bị archived
-    // - Loại trừ câu không có nội dung text
-    // - Với trắc nghiệm: phải có đáp án đúng (correct_answer)
-    const mcqEligible: Question[] = [];
-    const essayEligible: Question[] = [];
-
-    rawQuestions.forEach((q) => {
+    const isQuestionEligible = (q: Question): { eligible: boolean; isEssay: boolean } => {
       // Chỉ lấy câu hỏi ĐÃ DUYỆT (approved). Bỏ qua câu chưa duyệt (pending_review, draft, archived, rejected)
-      if (q.status && q.status !== 'approved') return;
-      if (!q.question_text || !q.question_text.trim()) return;
+      if (q.status && q.status !== 'approved') return { eligible: false, isEssay: false };
+      if (!q.question_text || !q.question_text.trim()) return { eligible: false, isEssay: false };
 
       // Filter theo độ khó nếu có chỉ định (khác 'all')
       if (filter?.difficulty && filter.difficulty !== 'all' && q.difficulty !== filter.difficulty) {
-        return;
+        return { eligible: false, isEssay: false };
       }
 
       const isEssay = q.question_type === 'essay' || q.question_type === 'short_answer';
-      const isMCQ = !isEssay;
-
-      if (isMCQ) {
-        // Phải có đáp án đúng
+      if (!isEssay) {
         const hasCorrect =
           q.correct_answer !== undefined &&
           q.correct_answer !== null &&
           q.correct_answer !== '';
-        if (hasCorrect) {
+        return { eligible: hasCorrect, isEssay: false };
+      }
+      return { eligible: true, isEssay: true };
+    };
+
+    const normalizeContentKey = (q: Question) => {
+      const normalizedText = (q.question_text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      return `${q.subject_id || ''}::${q.question_type}::${normalizedText}`;
+    };
+
+    const selectedTopics = store.lessonTopics.filter((t) => topicIds.includes(t.id));
+    const seenIds = new Set<string>();
+    const seenContentKeys = new Set<string>();
+    const duplicateIdSet = new Set<string>();
+
+    const mcqEligible: Question[] = [];
+    const essayEligible: Question[] = [];
+    let rawEligibleMcqSlots = 0;
+    let rawEligibleEssaySlots = 0;
+    let duplicateMcqRemoved = 0;
+    let duplicateEssayRemoved = 0;
+
+    selectedTopics.forEach((topic) => {
+      // Loại trùng trong nội bộ 1 chủ đề trước để mỗi chủ đề đóng góp tối đa 1 lần cho mỗi câu hỏi của chính nó
+      const uniqueIdsInTopic = Array.from(new Set(topic.question_ids || []));
+
+      uniqueIdsInTopic.forEach((qid) => {
+        const q = questionById.get(qid);
+        if (!q) return;
+
+        const { eligible, isEssay } = isQuestionEligible(q);
+        if (!eligible) return;
+
+        if (isEssay) rawEligibleEssaySlots += 1;
+        else rawEligibleMcqSlots += 1;
+
+        const contentKey = normalizeContentKey(q);
+        const isDuplicate = seenIds.has(q.id) || seenContentKeys.has(contentKey);
+
+        if (isDuplicate) {
+          duplicateIdSet.add(q.id);
+          if (isEssay) duplicateEssayRemoved += 1;
+          else duplicateMcqRemoved += 1;
+          return;
+        }
+
+        seenIds.add(q.id);
+        seenContentKeys.add(contentKey);
+        if (isEssay) {
+          essayEligible.push(q);
+        } else {
           mcqEligible.push(q);
         }
-      } else {
-        essayEligible.push(q);
-      }
+      });
     });
 
     const allEligible = [...mcqEligible, ...essayEligible];
@@ -695,11 +749,19 @@ export const DataService = {
     return {
       mcqEligible,
       essayEligible,
-      allEligible
+      allEligible,
+      stats: {
+        rawEligibleMcqSlots,
+        rawEligibleEssaySlots,
+        duplicateMcqRemoved,
+        duplicateEssayRemoved,
+        totalDuplicatesRemoved: duplicateMcqRemoved + duplicateEssayRemoved,
+        duplicateQuestionIds: Array.from(duplicateIdSet)
+      }
     };
   },
 
-  // CHỌN LỌC CÂU HỎI CHIA ĐỀU TỶ LỆ THEO CÁC CHỦ ĐỀ ĐƯỢC CHỌN (VD: 4 chủ đề -> 25%/chủ đề, 2 chủ đề -> 50%/chủ đề)
+  // CHỌN LỌC CÂU HỎI THEO CÁC CHỦ ĐỀ ĐƯỢC CHỌN (ĐẢM BẢO KHÔNG TRÙNG LẶP & THỐNG KÊ TỶ LỆ CHÍNH XÁC)
   selectQuestionsProportionally(
     topicIds: string[],
     options: {
@@ -713,6 +775,14 @@ export const DataService = {
     selectedMcq: Question[];
     selectedEssay: Question[];
     selectedAll: Question[];
+    dedupStats: {
+      rawEligibleMcqSlots: number;
+      rawEligibleEssaySlots: number;
+      duplicateMcqRemoved: number;
+      duplicateEssayRemoved: number;
+      totalDuplicatesRemoved: number;
+      duplicateQuestionIds: string[];
+    };
     perTopicAllocations: Array<{
       topicId: string;
       topicTitle: string;
@@ -723,6 +793,7 @@ export const DataService = {
       targetEssay: number;
       selectedEssay: number;
       availableEssay: number;
+      overlapCount: number;
     }>;
   } {
     const selectedTopics = store.lessonTopics.filter((t) => topicIds.includes(t.id));
@@ -732,6 +803,14 @@ export const DataService = {
         selectedMcq: [],
         selectedEssay: [],
         selectedAll: [],
+        dedupStats: {
+          rawEligibleMcqSlots: 0,
+          rawEligibleEssaySlots: 0,
+          duplicateMcqRemoved: 0,
+          duplicateEssayRemoved: 0,
+          totalDuplicatesRemoved: 0,
+          duplicateQuestionIds: []
+        },
         perTopicAllocations: []
       };
     }
@@ -751,7 +830,18 @@ export const DataService = {
       return copy;
     };
 
-    const sharePercent = Number((100 / n).toFixed(1));
+    const normalizeContentKey = (q: Question) => {
+      const normalizedText = (q.question_text || '').trim().replace(/\s+/g, ' ').toLowerCase();
+      return `${q.subject_id || ''}::${q.question_type}::${normalizedText}`;
+    };
+
+    // Thống kê trùng lặp toàn cục trên tập chủ đề đã chọn
+    const globalEligible = this.getEligibleQuestionsForTopics(topicIds, {
+      difficulty: options.difficulty,
+      formatType
+    });
+    const duplicateIdSet = new Set(globalEligible.stats.duplicateQuestionIds);
+
     const mcqBase = Math.floor(mcqNeeded / n);
     const mcqRem = mcqNeeded % n;
     const essayBase = Math.floor(essayNeeded / n);
@@ -763,39 +853,61 @@ export const DataService = {
         difficulty: options.difficulty,
         formatType
       });
+      const overlapCount = eligible.allEligible.filter((q) => duplicateIdSet.has(q.id)).length;
       return {
         topic,
         targetMcq: mcqBase + (idx < mcqRem ? 1 : 0),
         targetEssay: essayBase + (idx < essayRem ? 1 : 0),
         mcqPool: shuffleList(eligible.mcqEligible),
         essayPool: shuffleList(eligible.essayEligible),
+        overlapCount,
         pickedMcq: [] as Question[],
         pickedEssay: [] as Question[]
       };
     });
 
-    const usedMcqIds = new Set<string>();
-    const usedEssayIds = new Set<string>();
+    const usedIds = new Set<string>();
+    const usedContentKeys = new Set<string>();
 
-    // Pass 1: Lấy đúng phần trăm (quota) cho từng chủ đề
+    const canPickQuestion = (q: Question) => {
+      if (usedIds.has(q.id)) return false;
+      const key = normalizeContentKey(q);
+      return !usedContentKeys.has(key);
+    };
+
+    const markPickedQuestion = (q: Question) => {
+      usedIds.add(q.id);
+      usedContentKeys.add(normalizeContentKey(q));
+    };
+
+    // Pass 1: Lấy theo quota từng chủ đề, ưu tiên câu không bị trùng giữa các chủ đề trước để giữ phân bổ công bằng nhất
     topicPools.forEach((tp) => {
-      for (const q of tp.mcqPool) {
+      const orderedMcq = [
+        ...tp.mcqPool.filter((q) => !duplicateIdSet.has(q.id)),
+        ...tp.mcqPool.filter((q) => duplicateIdSet.has(q.id))
+      ];
+      for (const q of orderedMcq) {
         if (tp.pickedMcq.length >= tp.targetMcq) break;
-        if (!usedMcqIds.has(q.id)) {
+        if (canPickQuestion(q)) {
           tp.pickedMcq.push(q);
-          usedMcqIds.add(q.id);
+          markPickedQuestion(q);
         }
       }
-      for (const q of tp.essayPool) {
+
+      const orderedEssay = [
+        ...tp.essayPool.filter((q) => !duplicateIdSet.has(q.id)),
+        ...tp.essayPool.filter((q) => duplicateIdSet.has(q.id))
+      ];
+      for (const q of orderedEssay) {
         if (tp.pickedEssay.length >= tp.targetEssay) break;
-        if (!usedEssayIds.has(q.id)) {
+        if (canPickQuestion(q)) {
           tp.pickedEssay.push(q);
-          usedEssayIds.add(q.id);
+          markPickedQuestion(q);
         }
       }
     });
 
-    // Pass 2: Bù phần thiếu nếu một chủ đề cụ thể chưa đủ quota nhưng tổng ngân hàng vẫn còn câu hợp lệ
+    // Pass 2: Bù phần còn thiếu từ các chủ đề còn câu hợp lệ chưa được dùng (vẫn đảm bảo lọc trùng 100%)
     let totalPickedMcq = topicPools.reduce((sum, tp) => sum + tp.pickedMcq.length, 0);
     if (totalPickedMcq < mcqNeeded) {
       let addedInRound = true;
@@ -803,10 +915,10 @@ export const DataService = {
         addedInRound = false;
         for (const tp of topicPools) {
           if (totalPickedMcq >= mcqNeeded) break;
-          const nextQ = tp.mcqPool.find((q) => !usedMcqIds.has(q.id));
+          const nextQ = tp.mcqPool.find((q) => canPickQuestion(q));
           if (nextQ) {
             tp.pickedMcq.push(nextQ);
-            usedMcqIds.add(nextQ.id);
+            markPickedQuestion(nextQ);
             totalPickedMcq++;
             addedInRound = true;
           }
@@ -821,10 +933,10 @@ export const DataService = {
         addedInRound = false;
         for (const tp of topicPools) {
           if (totalPickedEssay >= essayNeeded) break;
-          const nextQ = tp.essayPool.find((q) => !usedEssayIds.has(q.id));
+          const nextQ = tp.essayPool.find((q) => canPickQuestion(q));
           if (nextQ) {
             tp.pickedEssay.push(nextQ);
-            usedEssayIds.add(nextQ.id);
+            markPickedQuestion(nextQ);
             totalPickedEssay++;
             addedInRound = true;
           }
@@ -835,23 +947,36 @@ export const DataService = {
     const selectedMcq = topicPools.flatMap((tp) => tp.pickedMcq);
     const selectedEssay = topicPools.flatMap((tp) => tp.pickedEssay);
     const selectedAll = [...selectedMcq, ...selectedEssay];
+    const totalSelectedAll = selectedAll.length;
 
-    const perTopicAllocations = topicPools.map((tp) => ({
-      topicId: tp.topic.id,
-      topicTitle: tp.topic.title,
-      sharePercent,
-      targetMcq: tp.targetMcq,
-      selectedMcq: tp.pickedMcq.length,
-      availableMcq: tp.mcqPool.length,
-      targetEssay: tp.targetEssay,
-      selectedEssay: tp.pickedEssay.length,
-      availableEssay: tp.essayPool.length
-    }));
+    const perTopicAllocations = topicPools.map((tp) => {
+      const pickedTotal = tp.pickedMcq.length + tp.pickedEssay.length;
+      const sharePercent =
+        totalSelectedAll > 0
+          ? (pickedTotal * 100) % totalSelectedAll === 0
+            ? (pickedTotal * 100) / totalSelectedAll
+            : Number(((pickedTotal / totalSelectedAll) * 100).toFixed(1))
+          : 0;
+
+      return {
+        topicId: tp.topic.id,
+        topicTitle: tp.topic.title,
+        sharePercent,
+        targetMcq: tp.targetMcq,
+        selectedMcq: tp.pickedMcq.length,
+        availableMcq: tp.mcqPool.length,
+        targetEssay: tp.targetEssay,
+        selectedEssay: tp.pickedEssay.length,
+        availableEssay: tp.essayPool.length,
+        overlapCount: tp.overlapCount
+      };
+    });
 
     return {
       selectedMcq,
       selectedEssay,
       selectedAll,
+      dedupStats: globalEligible.stats,
       perTopicAllocations
     };
   },

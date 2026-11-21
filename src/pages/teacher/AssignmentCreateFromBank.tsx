@@ -49,8 +49,9 @@ export const AssignmentCreateFromBank: React.FC = () => {
   // Format, difficulty & question counts
   const [formatType, setFormatType] = useState<'both' | 'mcq_only' | 'essay_only'>('both');
   const [difficultyFilter, setDifficultyFilter] = useState<'all' | QuestionDifficulty>('all');
-  const [selectedMcqCount, setSelectedMcqCount] = useState<number>(5);
-  const [selectedEssayCount, setSelectedEssayCount] = useState<number>(1);
+  const [selectedMcqCount, setSelectedMcqCount] = useState<number>(0);
+  const [selectedEssayCount, setSelectedEssayCount] = useState<number>(0);
+  const [autoSyncCounts, setAutoSyncCounts] = useState<boolean>(true);
 
   // Selected questions roster (auto-computed proportionally across selected topics)
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
@@ -153,8 +154,23 @@ export const AssignmentCreateFromBank: React.FC = () => {
     });
   }, [selectedTopicIds, difficultyFilter, formatType, allTopics, allQuestions]);
 
-  const maxAvailableMcq = eligibleData.mcqEligible.length;
-  const maxAvailableEssay = eligibleData.essayEligible.length;
+  const maxAvailableMcq = formatType === 'essay_only' ? 0 : eligibleData.mcqEligible.length;
+  const maxAvailableEssay = formatType === 'mcq_only' ? 0 : eligibleData.essayEligible.length;
+
+  // Thống kê số câu hỏi hợp lệ của từng chủ đề trong danh sách
+  const eligibleByTopicId = useMemo(() => {
+    const map = new Map<string, { mcq: number; essay: number; total: number }>();
+    availableTopics.forEach((topic) => {
+      const res = DataService.getEligibleQuestionsForTopics([topic.id], {
+        difficulty: difficultyFilter,
+        formatType
+      });
+      const mcq = formatType === 'essay_only' ? 0 : res.mcqEligible.length;
+      const essay = formatType === 'mcq_only' ? 0 : res.essayEligible.length;
+      map.set(topic.id, { mcq, essay, total: mcq + essay });
+    });
+    return map;
+  }, [availableTopics, difficultyFilter, formatType, allTopics, allQuestions]);
 
   const mcqShortage = useMemo(() => {
     if (formatType === 'essay_only') return 0;
@@ -168,28 +184,43 @@ export const AssignmentCreateFromBank: React.FC = () => {
 
   const totalShortage = mcqShortage + essayShortage;
 
-  // Adjust default counts cleanly when switching formatType
+  // Tự động cộng tổng chính xác số câu Trắc nghiệm & Tự luận duy nhất từ các chủ đề đang chọn
   useEffect(() => {
+    if (!autoSyncCounts) return;
+    if (allTopics.length === 0 && allQuestions.length === 0) return;
     if (formatType === 'essay_only') {
       setSelectedMcqCount(0);
-      if (selectedEssayCount === 0) setSelectedEssayCount(1);
+      setSelectedEssayCount(eligibleData.essayEligible.length);
     } else if (formatType === 'mcq_only') {
+      setSelectedMcqCount(eligibleData.mcqEligible.length);
       setSelectedEssayCount(0);
-      if (selectedMcqCount === 0) setSelectedMcqCount(5);
     } else {
-      if (selectedMcqCount === 0) setSelectedMcqCount(5);
-      if (selectedEssayCount === 0) setSelectedEssayCount(1);
+      setSelectedMcqCount(eligibleData.mcqEligible.length);
+      setSelectedEssayCount(eligibleData.essayEligible.length);
     }
-  }, [formatType]);
+  }, [
+    autoSyncCounts,
+    eligibleData.mcqEligible.length,
+    eligibleData.essayEligible.length,
+    formatType,
+    difficultyFilter,
+    selectedTopicIds,
+    allTopics.length,
+    allQuestions.length
+  ]);
 
-  // Percentage per topic (e.g., 4 topics -> 25%, 2 topics -> 50%, 1 topic -> 100%)
+  // Dynamic select ranges (không bị giới hạn cứng 20 / 10 câu)
+  const mcqOptionMax = Math.max(20, maxAvailableMcq, selectedMcqCount);
+  const essayOptionMax = Math.max(10, maxAvailableEssay, selectedEssayCount);
+
+  // Percentage per topic fallback
   const topicSharePercent = useMemo(() => {
     const n = selectedTopicIds.length;
     if (n === 0) return 0;
     return 100 % n === 0 ? 100 / n : Number((100 / n).toFixed(1));
   }, [selectedTopicIds.length]);
 
-  // Proportional selection across selected topics (25% each for 4 topics, 50% each for 2 topics, etc.)
+  // Selection across selected topics (đảm bảo không trùng lặp 100%)
   const proportionalSelection = useMemo(() => {
     return DataService.selectQuestionsProportionally(selectedTopicIds, {
       mcqCount: selectedMcqCount,
@@ -211,6 +242,13 @@ export const AssignmentCreateFromBank: React.FC = () => {
     });
     return map;
   }, [proportionalSelection]);
+
+  const isUniformAllocation = useMemo(() => {
+    const allocs = proportionalSelection.perTopicAllocations;
+    if (allocs.length <= 1) return true;
+    const firstPct = allocs[0].sharePercent;
+    return allocs.every((a) => a.sharePercent === firstPct);
+  }, [proportionalSelection.perTopicAllocations]);
 
   const reselectProportionally = () => {
     const fresh = DataService.selectQuestionsProportionally(selectedTopicIds, {
@@ -556,7 +594,7 @@ export const AssignmentCreateFromBank: React.FC = () => {
         <div className="flex items-center gap-2 text-slate-500 min-w-0 whitespace-nowrap">
           <button
             type="button"
-            onClick={() => navigate('/teacher/overview')}
+            onClick={() => navigate('/teacher/modules')}
             className="hover:text-blue-600 transition-colors flex items-center gap-1.5 font-medium cursor-pointer whitespace-nowrap shrink-0"
           >
             <BookOpen className="w-3.5 h-3.5 text-blue-600 shrink-0" />
@@ -707,7 +745,10 @@ export const AssignmentCreateFromBank: React.FC = () => {
             <div className="relative">
               <select
                 value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
+                onChange={(e) => {
+                  setAutoSyncCounts(true);
+                  setSubjectId(e.target.value);
+                }}
                 className="w-full appearance-none px-3 py-2 bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-hidden cursor-pointer transition-all pr-8 whitespace-nowrap"
               >
                 <option value="sub-math">Toán học</option>
@@ -761,34 +802,70 @@ export const AssignmentCreateFromBank: React.FC = () => {
           />
         </div>
 
-        {/* HÀNG 3: Liên kết với chủ đề môn học (Vertical scrollbar + Tỷ lệ phân bổ đều %) */}
+        {/* HÀNG 3: Liên kết với chủ đề môn học (Vertical scrollbar + Tự động tính tổng & lọc trùng) */}
         <div className="space-y-2 text-xs">
-          <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-extrabold text-blue-600 text-xs sm:text-sm flex items-center gap-1.5 whitespace-nowrap">
               <Layers className="w-4 h-4 text-blue-600 shrink-0" />
               <span>Liên kết với chủ đề môn học</span>
             </h3>
-            <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">
-              Đã chọn <b className="text-blue-600">{selectedTopicIds.length}</b> chủ đề
-              {selectedTopicIds.length > 0 && (
-                <span className="text-cyan-700 font-bold ml-1">
-                  (Phân bổ: {topicSharePercent}% mỗi chủ đề)
-                </span>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
+              <span>
+                Đã chọn <b className="text-blue-600">{selectedTopicIds.length}</b> chủ đề
+                {selectedTopicIds.length > 0 && (
+                  <span className="text-cyan-700 font-bold ml-1">
+                    {isUniformAllocation
+                      ? `(Phân bổ đều: ${proportionalSelection.perTopicAllocations[0]?.sharePercent ?? topicSharePercent}% mỗi chủ đề)`
+                      : `(Tổng ${maxAvailableMcq} TN${formatType === 'both' || formatType === 'essay_only' ? ` • ${maxAvailableEssay} TL` : ''} duy nhất)`}
+                  </span>
+                )}
+              </span>
+              {availableTopics.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoSyncCounts(true);
+                    if (selectedTopicIds.length === availableTopics.length) {
+                      setSelectedTopicIds([]);
+                    } else {
+                      setSelectedTopicIds(availableTopics.map((t) => t.id));
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-blue-700 font-bold text-[10px] border border-slate-200 cursor-pointer transition-colors"
+                >
+                  {selectedTopicIds.length === availableTopics.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                </button>
               )}
-            </span>
+            </div>
           </div>
 
+          {eligibleData.stats.totalDuplicatesRemoved > 0 && (
+            <div className="px-3 py-1.5 rounded-xl bg-cyan-50/80 border border-cyan-200 text-cyan-900 flex items-center justify-between gap-2 text-[11px]">
+              <span className="font-medium">
+                Hệ thống đã tự động lọc bỏ <b>{eligibleData.stats.totalDuplicatesRemoved} câu hỏi trùng lặp</b> xuất hiện ở nhiều chủ đề để chỉ tính duy nhất 1 lần
+                {eligibleData.stats.duplicateMcqRemoved > 0 && eligibleData.stats.duplicateEssayRemoved > 0
+                  ? ` (${eligibleData.stats.duplicateMcqRemoved} TN, ${eligibleData.stats.duplicateEssayRemoved} TL).`
+                  : '.'}
+              </span>
+              <span className="font-bold text-cyan-800 shrink-0 whitespace-nowrap">
+                Chính xác: {maxAvailableMcq} TN{formatType === 'both' || formatType === 'essay_only' ? ` • ${maxAvailableEssay} TL` : ''}
+              </span>
+            </div>
+          )}
+
           {availableTopics.length > 0 ? (
-            <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+            <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
               {availableTopics.map((topic) => {
                 const isSelected = selectedTopicIds.includes(topic.id);
                 const alloc = allocationByTopicId.get(topic.id);
                 const pickedTotal = alloc ? alloc.selectedMcq + alloc.selectedEssay : 0;
+                const topicStats = eligibleByTopicId.get(topic.id) || { mcq: 0, essay: 0, total: 0 };
 
                 return (
                   <div
                     key={topic.id}
                     onClick={() => {
+                      setAutoSyncCounts(true);
                       setSelectedTopicIds((prev) =>
                         prev.includes(topic.id)
                           ? prev.filter((id) => id !== topic.id)
@@ -814,10 +891,26 @@ export const AssignmentCreateFromBank: React.FC = () => {
                     </div>
 
                     <div className="text-[11px] text-slate-500 font-medium shrink-0 flex items-center gap-1.5 whitespace-nowrap">
-                      {isSelected && alloc && (
-                        <span className="px-2 py-0.5 rounded-md bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold text-[10px] whitespace-nowrap">
-                          {topicSharePercent}% • {pickedTotal} câu
+                      {!isSelected && (
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[10px] whitespace-nowrap">
+                          {topicStats.mcq} TN{topicStats.essay > 0 ? ` • ${topicStats.essay} TL` : ''}
                         </span>
+                      )}
+                      {isSelected && alloc && (
+                        <>
+                          <span className="px-2 py-0.5 rounded-md bg-cyan-50 border border-cyan-200 text-cyan-800 font-bold text-[10px] whitespace-nowrap">
+                            {alloc.sharePercent}% • {pickedTotal} câu
+                            {topicStats.total !== pickedTotal ? ` / ${topicStats.total} gốc` : ''}
+                          </span>
+                          {alloc.overlapCount > 0 && (
+                            <span
+                              title={`Có ${alloc.overlapCount} câu trùng lặp với chủ đề khác đã được lọc bỏ khi gộp`}
+                              className="px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[10px] whitespace-nowrap"
+                            >
+                              Trùng {alloc.overlapCount}
+                            </span>
+                          )}
+                        </>
                       )}
                       <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 font-extrabold text-[10px] whitespace-nowrap">
                         Buổi {topic.period_number || 1}
@@ -857,7 +950,10 @@ export const AssignmentCreateFromBank: React.FC = () => {
             <div className="relative">
               <select
                 value={formatType}
-                onChange={(e) => setFormatType(e.target.value as any)}
+                onChange={(e) => {
+                  setAutoSyncCounts(true);
+                  setFormatType(e.target.value as any);
+                }}
                 className="w-full appearance-none px-3 py-2 bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-hidden cursor-pointer pr-8 whitespace-nowrap"
               >
                 <option value="both">Kết hợp Trắc nghiệm &amp; Tự luận</option>
@@ -875,7 +971,10 @@ export const AssignmentCreateFromBank: React.FC = () => {
             <div className="relative">
               <select
                 value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value as any)}
+                onChange={(e) => {
+                  setAutoSyncCounts(true);
+                  setDifficultyFilter(e.target.value as any);
+                }}
                 className="w-full appearance-none px-3 py-2 bg-slate-50/80 hover:bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-hidden cursor-pointer pr-8 whitespace-nowrap"
               >
                 <option value="all">Tất cả mức độ</option>
@@ -889,79 +988,113 @@ export const AssignmentCreateFromBank: React.FC = () => {
           </div>
         </div>
 
-        {/* HÀNG 5: Số câu Trắc nghiệm (1-20) & Số câu Tự luận (1-10) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs">
-          {(formatType === 'both' || formatType === 'mcq_only') && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2 whitespace-nowrap">
-                <label className="font-bold text-slate-700 whitespace-nowrap">
-                  Số câu Trắc nghiệm (1–20)
-                </label>
-                <span className="text-[11px] font-bold text-emerald-700 whitespace-nowrap">
-                  Có: {maxAvailableMcq} / Cần: {selectedMcqCount}
-                </span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedMcqCount}
-                  onChange={(e) => setSelectedMcqCount(Number(e.target.value))}
-                  className={`w-full appearance-none px-3 py-2 bg-white border rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-hidden cursor-pointer pr-8 whitespace-nowrap ${
-                    mcqShortage > 0 ? 'border-amber-400' : 'border-slate-200'
-                  }`}
-                >
-                  <option value={0}>0 câu trắc nghiệm</option>
-                  {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                    <option key={num} value={num}>
-                      {num} câu trắc nghiệm {num > maxAvailableMcq ? `(Thiếu ${num - maxAvailableMcq})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-              {mcqShortage > 0 && (
-                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>Thiếu {mcqShortage} câu trắc nghiệm</span>
-                </div>
-              )}
+        {/* HÀNG 5: Số câu Trắc nghiệm & Số câu Tự luận (Tự động cộng tổng không trùng từ các chủ đề) */}
+        <div className="space-y-2 p-3 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs">
+          {!autoSyncCounts && (selectedMcqCount !== maxAvailableMcq || selectedEssayCount !== maxAvailableEssay) && (
+            <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-200/80 text-[11px]">
+              <span className="text-slate-600 font-medium">
+                Đang tùy chỉnh số lượng câu hỏi thủ công.
+              </span>
+              <button
+                type="button"
+                onClick={() => setAutoSyncCounts(true)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 cursor-pointer transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Đồng bộ tổng từ chủ đề ({maxAvailableMcq} TN{formatType === 'both' || formatType === 'essay_only' ? ` / ${maxAvailableEssay} TL` : ''})</span>
+              </button>
             </div>
           )}
 
-          {(formatType === 'both' || formatType === 'essay_only') && (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2 whitespace-nowrap">
-                <label className="font-bold text-slate-700 whitespace-nowrap">
-                  Số câu Tự luận (1–10)
-                </label>
-                <span className="text-[11px] font-bold text-purple-700 whitespace-nowrap">
-                  Có: {maxAvailableEssay} / Cần: {selectedEssayCount}
-                </span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedEssayCount}
-                  onChange={(e) => setSelectedEssayCount(Number(e.target.value))}
-                  className={`w-full appearance-none px-3 py-2 bg-white border rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-hidden cursor-pointer pr-8 whitespace-nowrap ${
-                    essayShortage > 0 ? 'border-amber-400' : 'border-slate-200'
-                  }`}
-                >
-                  <option value={0}>0 câu tự luận</option>
-                  {Array.from({ length: 10 }, (_, i) => i + 1).map((num) => (
-                    <option key={num} value={num}>
-                      {num} câu tự luận {num > maxAvailableEssay ? `(Thiếu ${num - maxAvailableEssay})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-              {essayShortage > 0 && (
-                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>Thiếu {essayShortage} câu tự luận</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(formatType === 'both' || formatType === 'mcq_only') && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                  <label className="font-bold text-slate-700 whitespace-nowrap">
+                    Số câu Trắc nghiệm
+                  </label>
+                  <span className="text-[11px] font-bold text-emerald-700 whitespace-nowrap">
+                    Hợp lệ: {maxAvailableMcq} / Đang chọn: {selectedMcqCount}
+                    {eligibleData.stats.duplicateMcqRemoved > 0 && (
+                      <span className="text-cyan-700 ml-1">
+                        (Đã lọc {eligibleData.stats.duplicateMcqRemoved} trùng)
+                      </span>
+                    )}
+                  </span>
                 </div>
-              )}
-            </div>
-          )}
+                <div className="relative">
+                  <select
+                    value={selectedMcqCount}
+                    onChange={(e) => {
+                      setAutoSyncCounts(false);
+                      setSelectedMcqCount(Number(e.target.value));
+                    }}
+                    className={`w-full appearance-none px-3 py-2 bg-white border rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-hidden cursor-pointer pr-8 whitespace-nowrap ${
+                      mcqShortage > 0 ? 'border-amber-400' : 'border-slate-200'
+                    }`}
+                  >
+                    <option value={0}>0 câu trắc nghiệm</option>
+                    {Array.from({ length: mcqOptionMax }, (_, i) => i + 1).map((num) => (
+                      <option key={num} value={num}>
+                        {num} câu trắc nghiệm {num > maxAvailableMcq ? `(Thiếu ${num - maxAvailableMcq})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                {mcqShortage > 0 && (
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Thiếu {mcqShortage} câu trắc nghiệm</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(formatType === 'both' || formatType === 'essay_only') && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                  <label className="font-bold text-slate-700 whitespace-nowrap">
+                    Số câu Tự luận
+                  </label>
+                  <span className="text-[11px] font-bold text-purple-700 whitespace-nowrap">
+                    Hợp lệ: {maxAvailableEssay} / Đang chọn: {selectedEssayCount}
+                    {eligibleData.stats.duplicateEssayRemoved > 0 && (
+                      <span className="text-cyan-700 ml-1">
+                        (Đã lọc {eligibleData.stats.duplicateEssayRemoved} trùng)
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="relative">
+                  <select
+                    value={selectedEssayCount}
+                    onChange={(e) => {
+                      setAutoSyncCounts(false);
+                      setSelectedEssayCount(Number(e.target.value));
+                    }}
+                    className={`w-full appearance-none px-3 py-2 bg-white border rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-hidden cursor-pointer pr-8 whitespace-nowrap ${
+                      essayShortage > 0 ? 'border-amber-400' : 'border-slate-200'
+                    }`}
+                  >
+                    <option value={0}>0 câu tự luận</option>
+                    {Array.from({ length: essayOptionMax }, (_, i) => i + 1).map((num) => (
+                      <option key={num} value={num}>
+                        {num} câu tự luận {num > maxAvailableEssay ? `(Thiếu ${num - maxAvailableEssay})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                {essayShortage > 0 && (
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-amber-700 whitespace-nowrap">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Thiếu {essayShortage} câu tự luận</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* HÀNG 6: Banner tạo câu hỏi tự động khi thiếu câu */}
@@ -1048,7 +1181,12 @@ export const AssignmentCreateFromBank: React.FC = () => {
             </button>
             {selectedTopicIds.length > 0 && (
               <span className="hidden lg:inline-block text-[11px] font-medium text-slate-500 truncate whitespace-nowrap">
-                Phân bổ đều {topicSharePercent}%/chủ đề ({selectedTopicIds.length} chủ đề)
+                {isUniformAllocation
+                  ? `Phân bổ đều ${proportionalSelection.perTopicAllocations[0]?.sharePercent ?? topicSharePercent}%/chủ đề (${selectedTopicIds.length} chủ đề)`
+                  : `Tổng ${selectedQuestions.length} câu duy nhất từ ${selectedTopicIds.length} chủ đề`}
+                {eligibleData.stats.totalDuplicatesRemoved > 0
+                  ? ` • Đã lọc ${eligibleData.stats.totalDuplicatesRemoved} câu trùng`
+                  : ''}
               </span>
             )}
           </div>
@@ -1089,7 +1227,11 @@ export const AssignmentCreateFromBank: React.FC = () => {
           isOpen={true}
           onClose={() => setIsPreviewModalOpen(false)}
           title={`Xem trước đề bài (${selectedQuestions.length} câu hỏi)`}
-          subtitle={`Phân bổ đều ${topicSharePercent}% cho mỗi chủ đề trong ${selectedTopicIds.length} chủ đề đã chọn`}
+          subtitle={
+            isUniformAllocation
+              ? `Phân bổ đều ${proportionalSelection.perTopicAllocations[0]?.sharePercent ?? topicSharePercent}% cho mỗi chủ đề trong ${selectedTopicIds.length} chủ đề đã chọn`
+              : `Tổng hợp ${selectedQuestions.length} câu hỏi duy nhất từ ${selectedTopicIds.length} chủ đề đã chọn`
+          }
           maxWidth="2xl"
         >
           <div className="space-y-4 text-xs">
@@ -1106,6 +1248,11 @@ export const AssignmentCreateFromBank: React.FC = () => {
                   <span>Trộn lại đề</span>
                 </button>
               </div>
+              {eligibleData.stats.totalDuplicatesRemoved > 0 && (
+                <div className="px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-200 text-cyan-800 text-[11px] font-semibold">
+                  Đã tự động lọc bỏ {eligibleData.stats.totalDuplicatesRemoved} câu hỏi trùng lặp giữa các chủ đề (mỗi câu chỉ xuất hiện 1 lần).
+                </div>
+              )}
               <div className="space-y-1">
                 {proportionalSelection.perTopicAllocations.map((alloc) => (
                   <div
@@ -1115,6 +1262,7 @@ export const AssignmentCreateFromBank: React.FC = () => {
                     <span className="font-semibold text-slate-800 truncate">{alloc.topicTitle}</span>
                     <span className="text-[11px] font-bold text-blue-700 shrink-0">
                       {alloc.sharePercent}% • {alloc.selectedMcq} TN / {alloc.selectedEssay} TL
+                      {alloc.overlapCount > 0 ? ` (giao thoa ${alloc.overlapCount})` : ''}
                     </span>
                   </div>
                 ))}
@@ -1227,7 +1375,10 @@ export const AssignmentCreateFromBank: React.FC = () => {
               <div className="flex justify-between gap-2 whitespace-nowrap">
                 <span className="text-slate-500">Phân bổ chủ đề:</span>
                 <span className="font-bold text-cyan-700">
-                  {selectedTopicIds.length} chủ đề ({topicSharePercent}% / chủ đề)
+                  {selectedTopicIds.length} chủ đề{' '}
+                  {isUniformAllocation
+                    ? `(${proportionalSelection.perTopicAllocations[0]?.sharePercent ?? topicSharePercent}% / chủ đề)`
+                    : `(Đã lọc ${eligibleData.stats.totalDuplicatesRemoved} trùng)`}
                 </span>
               </div>
               <div className="flex justify-between gap-2 whitespace-nowrap">

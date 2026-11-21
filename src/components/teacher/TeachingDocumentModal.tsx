@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { LessonTopic, Question } from '../../types';
 import { DataService } from '../../services/dataService';
 import { MathRenderer } from '../common/MathRenderer';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import {
   FileText,
   Upload,
@@ -97,6 +98,8 @@ export const TeachingDocumentModal: React.FC<TeachingDocumentModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showTemplateConfirm, setShowTemplateConfirm] = useState(false);
 
   // Auto-resize textarea so background stretches to 100% of the text with natural height
   const resizeTextarea = () => {
@@ -183,21 +186,14 @@ export const TeachingDocumentModal: React.FC<TeachingDocumentModalProps> = ({
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: any) {
-      alert('Không thể lưu giáo án: ' + (err.message || 'Lỗi không xác định'));
+      setErrorMessage('Không thể lưu giáo án: ' + (err?.message || 'Lỗi không xác định'));
     } finally {
       setIsSaving(false);
     }
   };
 
   // Standard Lesson Plan Template (Mẫu KHBD 5512 Bộ GD&ĐT)
-  const handleInsertTemplate = () => {
-    if (
-      content.trim().length > 50 &&
-      !confirm('Nội dung hiện tại sẽ được cập nhật theo mẫu chuẩn KHBD 5512. Bạn có muốn tiếp tục?')
-    ) {
-      return;
-    }
-
+  const applyStandardTemplate = () => {
     const template = `I. MỤC TIÊU BÀI HỌC:
 1. Kiến thức:
 - Nắm vững các khái niệm, định lý và công thức trọng tâm của chủ đề: ${title}.
@@ -238,6 +234,14 @@ III. TIẾN TRÌNH DẠY HỌC:
         `- Lưu ý đặc biệt: Nhấn mạnh sự khác nhau giữa trường hợp a > 0 và a < 0.\n- Chuẩn bị 2 học sinh khá lên chữa câu tự luận khó.\n- Thời gian thảo luận nhóm tối đa 5 phút.`
       );
     }
+  };
+
+  const handleInsertTemplate = () => {
+    if (content.trim().length > 50) {
+      setShowTemplateConfirm(true);
+      return;
+    }
+    applyStandardTemplate();
   };
 
   // Upload file (txt, docx, md, pdf, images)
@@ -422,7 +426,7 @@ III. TIẾN TRÌNH DẠY HỌC:
         </div>
       </header>
 
-      {/* Success Notification Banner */}
+      {/* Success / Error Notification Banners */}
       {uploadMessage && (
         <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shrink-0 animate-in slide-in-from-top duration-200">
           <div className="flex items-center gap-2">
@@ -430,6 +434,17 @@ III. TIẾN TRÌNH DẠY HỌC:
             <span>{uploadMessage}</span>
           </div>
           <button onClick={() => setUploadMessage(null)} className="text-white/80 hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {errorMessage && (
+        <div className="bg-rose-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shrink-0 animate-in slide-in-from-top duration-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            <span>{errorMessage}</span>
+          </div>
+          <button onClick={() => setErrorMessage(null)} className="text-white/80 hover:text-white">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -1009,6 +1024,18 @@ III. TIẾN TRÌNH DẠY HỌC:
           <span>Phím tắt: F11 (Toàn màn hình) • Ctrl + P (In giáo án)</span>
         </div>
       </footer>
+
+      <ConfirmDialog
+        isOpen={showTemplateConfirm}
+        onClose={() => setShowTemplateConfirm(false)}
+        onConfirm={() => {
+          applyStandardTemplate();
+          setShowTemplateConfirm(false);
+        }}
+        title="Áp dụng mẫu KHBD 5512"
+        message="Nội dung hiện tại sẽ được cập nhật theo mẫu chuẩn KHBD 5512. Bạn có muốn tiếp tục?"
+        confirmLabel="Áp dụng mẫu"
+      />
     </div>
   );
 };

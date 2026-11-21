@@ -72,6 +72,8 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
   const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const [isSavedSuccess, setIsSavedSuccess] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
 
   // Sample templates for quick test
   const sampleLessons = [
@@ -145,13 +147,15 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
   };
 
   // Scrape Web URL simulation
-  const handleScrapeWeb = () => {
-    if (!webUrl.trim()) {
-      alert('Vui lòng nhập đường link trang web hợp lệ!');
+  const handleScrapeWeb = (urlOverride?: string) => {
+    const targetUrl = (typeof urlOverride === 'string' ? urlOverride : webUrl).trim();
+    if (!targetUrl) {
+      setErrorMessage('Vui lòng nhập đường link trang web hợp lệ!');
       return;
     }
+    setErrorMessage(null);
     setWebScrapedSummary(
-      `[Trích xuất từ ${webUrl}]\nChuyên đề giáo dục trực tuyến: Tổng hợp các dạng bài toán về định lý cosin và định lý sin trong tam giác. Các công thức tính diện tích tam giác: S = 1/2*a*h_a = 1/2*a*b*sinC = abc/(4R) = p*r = căn(p(p-a)(p-b)(p-c)). Công thức độ dài đường trung tuyến.`
+      `[Trích xuất từ ${targetUrl}]\nChuyên đề giáo dục trực tuyến: Tổng hợp các dạng bài toán về định lý cosin và định lý sin trong tam giác. Các công thức tính diện tích tam giác: S = 1/2*a*h_a = 1/2*a*b*sinC = abc/(4R) = p*r = căn(p(p-a)(p-b)(p-c)). Công thức độ dài đường trung tuyến.`
     );
   };
 
@@ -160,6 +164,7 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     setImageFile(file);
+    setImageLoadError(false);
     const url = URL.createObjectURL(file);
     setImagePreviewUrl(url);
 
@@ -171,6 +176,7 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
 
   // Sample images for testing OCR
   const applySampleImage = () => {
+    setImageLoadError(false);
     setImagePreviewUrl('https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80');
     setImageOcrText(
       `[AI OCR Nhận diện từ ảnh Bài tập Toán học]\nĐề bài: Giải phương trình lượng giác: 2*sin(x) - căn(3) = 0.\nA. x = pi/3 + k2pi hoặc x = 2pi/3 + k2pi\nB. x = pi/6 + k2pi\nC. x = -pi/3 + k2pi\nD. Vô nghiệm.`
@@ -205,10 +211,11 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
     }
 
     if (!sourceContent.trim()) {
-      alert('Vui lòng nhập nội dung, tải tài liệu hoặc quét ảnh trước khi yêu cầu AI tạo câu hỏi!');
+      setErrorMessage('Vui lòng nhập nội dung, tải tài liệu hoặc quét ảnh trước khi yêu cầu AI tạo câu hỏi!');
       return;
     }
 
+    setErrorMessage(null);
     setIsGenerating(true);
     setProgress(15);
     setIsSavedSuccess(false);
@@ -285,7 +292,7 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
       setSelectedIndices(enriched.map((_, i) => i));
     } catch (err) {
       clearInterval(timer);
-      alert('Không thể tạo câu hỏi từ nguồn này. Vui lòng thử lại với nội dung rõ ràng hơn!');
+      setErrorMessage('Không thể tạo câu hỏi từ nguồn này. Vui lòng thử lại với nội dung rõ ràng hơn!');
     } finally {
       setIsGenerating(false);
     }
@@ -310,17 +317,18 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
   const handleSaveApproved = async () => {
     const toSave = generatedQuestions.filter((_, idx) => selectedIndices.includes(idx));
     if (toSave.length === 0) {
-      alert('Vui lòng chọn ít nhất một câu hỏi để lưu vào Ngân hàng!');
+      setErrorMessage('Vui lòng chọn ít nhất một câu hỏi để lưu vào Ngân hàng!');
       return;
     }
 
+    setErrorMessage(null);
     try {
       await onSaveQuestions(toSave);
       setSavedCount(toSave.length);
       setIsSavedSuccess(true);
       setGeneratedQuestions([]);
     } catch (e) {
-      alert('Có lỗi xảy ra khi lưu câu hỏi vào hệ thống!');
+      setErrorMessage('Có lỗi xảy ra khi lưu câu hỏi vào hệ thống!');
     }
   };
 
@@ -528,7 +536,7 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={handleScrapeWeb}
+                  onClick={() => handleScrapeWeb()}
                   className="px-4 py-2.5 bg-purple-600 text-white text-xs font-semibold rounded-xl hover:bg-purple-700 transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <Globe className="w-4 h-4" />
@@ -561,7 +569,7 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
                       type="button"
                       onClick={() => {
                         setWebUrl(item.url);
-                        handleScrapeWeb();
+                        handleScrapeWeb(item.url);
                       }}
                       className="w-full text-left px-3 py-2 text-xs bg-gray-50 hover:bg-purple-50 text-gray-700 hover:text-purple-700 border border-gray-200 rounded-lg transition-colors flex items-center justify-between"
                     >
@@ -623,12 +631,18 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
 
                 {/* Preview Image */}
                 <div className="bg-gray-100 rounded-2xl p-2 border border-gray-200 flex items-center justify-center min-h-[160px] overflow-hidden">
-                  {imagePreviewUrl ? (
+                  {imagePreviewUrl && !imageLoadError ? (
                     <img
                       src={imagePreviewUrl}
                       alt="Uploaded preview"
+                      referrerPolicy="no-referrer"
+                      onError={() => setImageLoadError(true)}
                       className="max-h-40 rounded-xl object-contain shadow-sm"
                     />
+                  ) : imageLoadError ? (
+                    <span className="text-xs text-purple-700 font-medium px-3 text-center">
+                      Đã nạp dữ liệu ảnh mẫu để nhận diện OCR
+                    </span>
                   ) : (
                     <span className="text-xs text-gray-400 italic">Chưa có ảnh nào được chọn</span>
                   )}
@@ -779,6 +793,14 @@ export const TabAIQuestions: React.FC<TabAIQuestionsProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Error Notification */}
+      {errorMessage && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex items-center gap-3 text-xs font-semibold text-rose-800">
+          <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
 
       {/* Success Notification */}
       {isSavedSuccess && (

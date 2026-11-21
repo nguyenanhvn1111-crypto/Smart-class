@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useClass } from '../../contexts/ClassContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { DataService } from '../../services/dataService';
 import { aiAssistant } from '../../services/aiService';
 import { Question } from '../../types';
@@ -13,11 +14,20 @@ import {
   ArrowLeft,
   CheckCircle2,
   Plus,
-  Trash2
+  Trash2,
+  AlertCircle
 } from 'lucide-react';
+
+const SUBJECT_NAMES: Record<string, string> = {
+  'sub-math': 'Toán Học',
+  'sub-lit': 'Ngữ Văn',
+  'sub-eng': 'Tiếng Anh',
+  'sub-phys': 'Vật Lý'
+};
 
 export const QuizCreate: React.FC = () => {
   const { classes, selectedClassId } = useClass();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const preSelected: Question[] = (location.state as any)?.preSelectedQuestions || [];
@@ -31,6 +41,7 @@ export const QuizCreate: React.FC = () => {
   const [shuffleQuestions, setShuffleQuestions] = useState(true);
   const [shuffleOptions, setShuffleOptions] = useState(true);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // Selected questions
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
@@ -58,10 +69,12 @@ export const QuizCreate: React.FC = () => {
 
   const handleGenerateQuestionsAI = async () => {
     setIsAiLoading(true);
+    setFormError(null);
+    const subjectName = SUBJECT_NAMES[subjectId] || 'Toán Học';
     try {
       const generated = await aiAssistant.generateQuestions({
-        subject: 'Toán Học',
-        topic: title || 'Mệnh đề và Tập hợp',
+        subject: subjectName,
+        topic: title || `Chuyên đề ${subjectName}`,
         count: 3,
         questionType: 'single_choice'
       });
@@ -69,9 +82,9 @@ export const QuizCreate: React.FC = () => {
       for (const g of generated) {
         if (g.question_text) {
           const created = await DataService.createQuestion({
-            teacher_id: 'user-teacher-1',
-            subject_id: 'sub-math',
-            subject_name: 'Toán Học',
+            teacher_id: user?.id || 'user-teacher-1',
+            subject_id: subjectId,
+            subject_name: subjectName,
             question_text: g.question_text,
             question_type: (g.question_type as any) || 'single_choice',
             options: g.options || [],
@@ -91,20 +104,27 @@ export const QuizCreate: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      alert('Vui lòng nhập tên bài kiểm tra');
+      setFormError('Vui lòng nhập tên bài kiểm tra.');
       return;
     }
 
-    const cls = classes.find((c) => c.id === classId);
     const chosenQuestions = availableQuestions.filter((q) => selectedQuestionIds.has(q.id));
+    if (chosenQuestions.length === 0) {
+      setFormError('Vui lòng chọn ít nhất 1 câu hỏi cho đề kiểm tra.');
+      return;
+    }
+    setFormError(null);
+
+    const cls = classes.find((c) => c.id === classId);
+    const subjectName = SUBJECT_NAMES[subjectId] || 'Toán Học';
 
     await DataService.createQuiz({
       class_id: classId,
       class_name: cls?.name || '10A1',
-      teacher_id: 'user-teacher-1',
+      teacher_id: user?.id || 'user-teacher-1',
       subject_id: subjectId,
-      subject_name: 'Toán Học',
-      title,
+      subject_name: subjectName,
+      title: title.trim(),
       description,
       duration_minutes: duration,
       pass_score: passScore,
@@ -139,6 +159,13 @@ export const QuizCreate: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {formError && (
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{formError}</span>
+          </div>
+        )}
+
         {/* Basic info card */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-4">
           <h3 className="text-base font-bold text-slate-900">1. Thông tin chung về đề thi</h3>
@@ -156,7 +183,7 @@ export const QuizCreate: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Giao cho lớp</label>
               <select
@@ -172,6 +199,19 @@ export const QuizCreate: React.FC = () => {
               </select>
             </div>
             <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Môn học</label>
+              <select
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-hidden font-medium"
+              >
+                <option value="sub-math">Toán Học</option>
+                <option value="sub-lit">Ngữ Văn</option>
+                <option value="sub-eng">Tiếng Anh</option>
+                <option value="sub-phys">Vật Lý</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Thời gian làm bài (Phút)
               </label>
@@ -180,7 +220,7 @@ export const QuizCreate: React.FC = () => {
                 min={5}
                 max={180}
                 value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
+                onChange={(e) => setDuration(Math.max(5, Number(e.target.value) || 5))}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-hidden font-bold"
               />
             </div>

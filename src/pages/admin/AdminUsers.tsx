@@ -4,6 +4,7 @@ import { UserProfile, UserRole } from '../../types';
 import { StatusChip } from '../../components/common/StatusChip';
 import { SearchBox } from '../../components/common/SearchBox';
 import { Modal } from '../../components/common/Modal';
+import { UserAvatar } from '../../components/common/UserAvatar';
 import { createFirebaseUserAccount } from '../../services/firebaseAuthAdminService';
 import {
   Users,
@@ -180,12 +181,9 @@ export const AdminUsers: React.FC = () => {
               <tr key={u.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={
-                        u.avatar_url ||
-                        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'
-                      }
-                      alt={u.full_name}
+                    <UserAvatar
+                      src={u.avatar_url}
+                      name={u.full_name}
                       className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100"
                     />
                     <div>
@@ -222,7 +220,13 @@ export const AdminUsers: React.FC = () => {
                     {u.is_active ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                   </button>
                   <button
-                    onClick={() => alert(`Đã gửi email khôi phục mật khẩu tới: ${u.email}`)}
+                    onClick={() => {
+                      setNotification({
+                        type: 'success',
+                        message: `Đã gửi email khôi phục mật khẩu tới: ${u.email}`
+                      });
+                      setTimeout(() => setNotification(null), 5000);
+                    }}
                     className="p-1.5 text-slate-500 hover:text-blue-600 rounded-lg hover:bg-slate-100"
                     title="Đặt lại mật khẩu"
                   >

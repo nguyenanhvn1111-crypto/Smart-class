@@ -3,6 +3,7 @@ import { DataService } from '../../services/dataService';
 import { getVisibleSubmissionForLearner } from '../../services/assignmentManagementService';
 import { Assignment, Submission, Student } from '../../types';
 import { Modal } from '../../components/common/Modal';
+import { UserAvatar } from '../../components/common/UserAvatar';
 import {
   FileText,
   Clock,
@@ -205,10 +206,10 @@ export const ParentAssignments: React.FC = () => {
                         : 'text-white hover:bg-white/10'
                     }`}
                   >
-                    <img
+                    <UserAvatar
                       src={child.avatar}
-                      alt={child.name}
-                      className="w-6 h-6 rounded-full object-cover"
+                      name={child.name}
+                      className="w-6 h-6 rounded-full object-cover text-[10px]"
                     />
                     <span>{child.name}</span>
                   </button>

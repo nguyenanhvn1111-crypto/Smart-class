@@ -25,6 +25,7 @@ export const QuizPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'quizzes' | 'question_bank'>('quizzes');
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [selectedQuizForResults, setSelectedQuizForResults] = useState<Quiz | null>(null);
 
   // Question create modal
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
@@ -168,8 +169,9 @@ export const QuizPage: React.FC = () => {
 
               <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-end">
                 <button
-                  onClick={() => alert('Xem thống kê chi tiết kết quả bài thi')}
-                  className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs"
+                  type="button"
+                  onClick={() => setSelectedQuizForResults(quiz)}
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-xs cursor-pointer"
                 >
                   Xem kết quả thi
                 </button>
@@ -379,6 +381,71 @@ export const QuizPage: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Quiz Results Modal */}
+      <Modal
+        isOpen={Boolean(selectedQuizForResults)}
+        onClose={() => setSelectedQuizForResults(null)}
+        title="Thống kê kết quả bài kiểm tra"
+        subtitle={selectedQuizForResults ? `${selectedQuizForResults.title} • ${selectedQuizForResults.class_name}` : ''}
+        maxWidth="lg"
+      >
+        {selectedQuizForResults && (
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl">
+                <span className="text-blue-700 block">Tổng số câu</span>
+                <span className="text-lg font-extrabold text-blue-900">
+                  {selectedQuizForResults.questions?.length || 0} câu
+                </span>
+              </div>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                <span className="text-emerald-700 block">Lượt làm bài</span>
+                <span className="text-lg font-extrabold text-emerald-900">
+                  {selectedQuizForResults.attempt_count || 0}
+                </span>
+              </div>
+              <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl">
+                <span className="text-purple-700 block">Điểm đạt chuẩn</span>
+                <span className="text-lg font-extrabold text-purple-900">
+                  {selectedQuizForResults.pass_score ?? 5}/{selectedQuizForResults.total_points || 10}
+                </span>
+              </div>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl">
+                <span className="text-amber-700 block">Thời lượng</span>
+                <span className="text-lg font-extrabold text-amber-900">
+                  {selectedQuizForResults.duration_minutes} phút
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              <h4 className="font-bold text-slate-800">Danh sách câu hỏi trong đề:</h4>
+              {(selectedQuizForResults.questions || []).map((q, idx) => (
+                <div key={q.id || idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-3">
+                  <div>
+                    <span className="font-bold text-blue-700 mr-1.5">Câu {idx + 1}:</span>
+                    <span className="text-slate-800">{q.question_text}</span>
+                  </div>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded shrink-0">
+                    Đ/A: {q.correct_answer || '—'}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedQuizForResults(null)}
+                className="px-4 py-2 bg-slate-900 text-white font-semibold rounded-xl cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -39,6 +39,9 @@ const pathNameMap: Record<string, string> = {
   submissions: 'Bài nộp',
   profile: 'Hồ sơ',
   settings: 'Cài đặt',
+  system: 'Cài đặt hệ thống',
+  display: 'Cài đặt màn hình',
+  account: 'Cài đặt tài khoản',
   schools: 'Trường học',
   academic: 'Năm học & Khối',
   users: 'Người dùng',
@@ -50,55 +53,62 @@ interface BreadcrumbProps {
   isDark?: boolean;
 }
 
-export const Breadcrumb: React.FC<BreadcrumbProps> = ({ isDark = false }) => {
+export const Breadcrumb: React.FC<BreadcrumbProps> = () => {
   const location = useLocation();
   const pathnames = location.pathname.split('/').filter((x) => x);
 
   if (pathnames.length === 0) return null;
 
-  if (isDark && location.pathname.startsWith('/teacher/assignments')) {
+  const isAssignmentListRoute =
+    location.pathname === '/teacher/assignments' ||
+    (location.pathname.startsWith('/teacher/assignments/') &&
+      !location.pathname.startsWith('/teacher/assignments/topics') &&
+      !location.pathname.startsWith('/teacher/assignments/create') &&
+      !location.pathname.startsWith('/teacher/assignments/new'));
+
+  if (isAssignmentListRoute) {
     const isReports = location.pathname.endsWith('/reports');
     const hasSubmission = location.pathname.includes('/submissions/');
 
     return (
-      <nav className="flex flex-wrap items-center text-xs text-slate-300 mb-3" aria-label="Breadcrumb">
+      <nav className="flex flex-wrap items-center text-xs text-slate-500 dark:text-slate-400 mb-4" aria-label="Breadcrumb">
         <Link
           to="/teacher/dashboard"
-          className="flex items-center gap-1 hover:text-[#00D4FF] transition-colors"
+          className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
         >
           <Home className="w-3.5 h-3.5" />
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
-        <Link to="/teacher/modules" className="hover:text-[#00D4FF] transition-colors">
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 mx-1.5" />
+        <Link to="/teacher/modules" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Dạy &amp; Học
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
-        <Link to="/teacher/assignments" className="hover:text-[#00D4FF] transition-colors">
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 mx-1.5" />
+        <Link to="/teacher/assignments" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
           Giao bài tập
         </Link>
-        <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
+        <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 mx-1.5" />
         {isReports || hasSubmission ? (
           <>
-            <Link to="/teacher/assignments" className="hover:text-[#00D4FF] transition-colors">
+            <Link to="/teacher/assignments" className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
               Danh sách bài tập đã giao
             </Link>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-500 mx-1.5" />
-            <span className="font-semibold text-[#00D4FF]">
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 mx-1.5" />
+            <span className="font-semibold text-slate-800 dark:text-slate-100">
               {isReports ? 'Báo cáo lượt giao' : 'Chấm & Xem bài làm'}
             </span>
           </>
         ) : (
-          <span className="font-semibold text-[#00D4FF]">Danh sách bài tập đã giao</span>
+          <span className="font-semibold text-slate-800 dark:text-slate-100">Danh sách bài tập đã giao</span>
         )}
       </nav>
     );
   }
 
   return (
-    <nav className="flex items-center text-xs text-slate-500 mb-4" aria-label="Breadcrumb">
+    <nav className="flex items-center text-xs text-slate-500 dark:text-slate-400 mb-4" aria-label="Breadcrumb">
       <Link
         to="/"
-        className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+        className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
       >
         <Home className="w-3.5 h-3.5" />
       </Link>
@@ -109,11 +119,11 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ isDark = false }) => {
 
         return (
           <React.Fragment key={routeTo}>
-            <ChevronRight className="w-3.5 h-3.5 text-slate-400 mx-1.5" />
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 mx-1.5" />
             {isLast ? (
-              <span className="font-semibold text-slate-800">{name}</span>
+              <span className="font-semibold text-slate-800 dark:text-slate-100">{name}</span>
             ) : (
-              <Link to={routeTo} className="hover:text-blue-600 transition-colors">
+              <Link to={routeTo} className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                 {name}
               </Link>
             )}

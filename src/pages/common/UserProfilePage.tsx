@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { StatusChip } from '../../components/common/StatusChip';
-import { User, Mail, Phone, Lock, Save, CheckCircle2, Shield } from 'lucide-react';
+import { UserAvatar } from '../../components/common/UserAvatar';
+import { Lock, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const UserProfilePage: React.FC = () => {
   const { user, role, updateProfile } = useAuth();
@@ -11,12 +12,33 @@ export const UserProfilePage: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    setFullName(user?.full_name || '');
+    setPhone(user?.phone || '');
+  }, [user]);
 
   const handleUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile({ full_name: fullName, phone });
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handlePasswordChange = () => {
+    if (!currentPassword.trim()) {
+      setPasswordFeedback({ type: 'error', message: 'Vui lòng nhập mật khẩu hiện tại.' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordFeedback({ type: 'error', message: 'Mật khẩu mới phải có tối thiểu 6 ký tự.' });
+      return;
+    }
+    setPasswordFeedback({ type: 'success', message: 'Đã cập nhật mật khẩu mới thành công!' });
+    setCurrentPassword('');
+    setNewPassword('');
+    setTimeout(() => setPasswordFeedback(null), 4000);
   };
 
   return (
@@ -40,13 +62,10 @@ export const UserProfilePage: React.FC = () => {
       {/* Profile Card */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
         <div className="flex items-center gap-5 pb-6 border-b border-slate-100">
-          <img
-            src={
-              user?.avatar_url ||
-              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=140'
-            }
-            alt={user?.full_name}
-            className="w-20 h-20 rounded-3xl object-cover ring-4 ring-blue-50 shadow-xs"
+          <UserAvatar
+            src={user?.avatar_url}
+            name={user?.full_name}
+            className="w-20 h-20 rounded-3xl object-cover ring-4 ring-blue-50 shadow-xs text-xl"
           />
           <div>
             <div className="flex items-center gap-2">
@@ -148,15 +167,28 @@ export const UserProfilePage: React.FC = () => {
           </div>
         </div>
 
+        {passwordFeedback && (
+          <div
+            className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 border ${
+              passwordFeedback.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-rose-50 text-rose-800 border-rose-200'
+            }`}
+          >
+            {passwordFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span>{passwordFeedback.message}</span>
+          </div>
+        )}
+
         <div className="flex justify-end pt-2">
           <button
             type="button"
-            onClick={() => {
-              alert('Đã cập nhật mật khẩu mới thành công!');
-              setCurrentPassword('');
-              setNewPassword('');
-            }}
-            className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-all"
+            onClick={handlePasswordChange}
+            className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
           >
             Cập nhật mật khẩu
           </button>

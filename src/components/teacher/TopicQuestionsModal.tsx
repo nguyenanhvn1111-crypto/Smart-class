@@ -4,6 +4,7 @@ import { LessonTopic, Question, QuestionDifficulty } from '../../types';
 import { DataService } from '../../services/dataService';
 import { MathRenderer } from '../common/MathRenderer';
 import { BookQuestionIcon } from '../common/BookQuestionIcon';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import {
   HelpCircle,
   X,
@@ -63,10 +64,18 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
   const [newQExplanation, setNewQExplanation] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingRemoveQuestionId, setPendingRemoveQuestionId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
+    setErrorMessage(null);
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(null), 5000);
   };
 
   // Current questions linked to this topic
@@ -120,18 +129,23 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
   }, [allQuestions, topic, bankSearch, bankDifficulty, bankType]);
 
   // Remove question from topic
-  const handleRemoveQuestion = async (qId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn bỏ câu hỏi này khỏi chủ đề bài học?')) return;
+  const handleRemoveQuestion = (qId: string) => {
+    setPendingRemoveQuestionId(qId);
+  };
 
+  const confirmRemoveQuestion = async () => {
+    if (!pendingRemoveQuestionId) return;
     try {
-      const updatedIds = (topic.question_ids || []).filter((id) => id !== qId);
+      const updatedIds = (topic.question_ids || []).filter((id) => id !== pendingRemoveQuestionId);
       const updated = await DataService.updateLessonTopic(topic.id, {
         question_ids: updatedIds
       });
       onTopicUpdated(updated);
       showToast('Đã gỡ câu hỏi khỏi chủ đề bài học.');
     } catch (err: any) {
-      alert('Không thể cập nhật: ' + err.message);
+      showError('Không thể cập nhật: ' + (err?.message || 'Lỗi không xác định'));
+    } finally {
+      setPendingRemoveQuestionId(null);
     }
   };
 
@@ -150,7 +164,7 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
       setActiveTab('current');
       showToast(`Đã thêm thành công ${selectedBankQIds.length} câu hỏi vào chủ đề!`);
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      showError('Lỗi: ' + (err?.message || 'Lỗi không xác định'));
     } finally {
       setIsSaving(false);
     }
@@ -160,7 +174,7 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
   const handleCreateQuestionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQText.trim()) {
-      alert('Vui lòng nhập nội dung câu hỏi.');
+      showError('Vui lòng nhập nội dung câu hỏi.');
       return;
     }
 
@@ -209,7 +223,7 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
       setActiveTab('current');
       showToast(`Đã tạo mới và gắn câu hỏi vào chủ đề thành công!`);
     } catch (err: any) {
-      alert('Lỗi tạo câu hỏi: ' + err.message);
+      showError('Lỗi tạo câu hỏi: ' + (err?.message || 'Lỗi không xác định'));
     } finally {
       setIsSaving(false);
     }
@@ -225,6 +239,17 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{toastMessage}</span>
             </div>
+          </div>
+        )}
+        {errorMessage && (
+          <div className="bg-rose-600 text-white text-xs font-bold px-4 py-2 flex items-center justify-between shrink-0 animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+            <button onClick={() => setErrorMessage(null)} className="text-white/80 hover:text-white">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -779,6 +804,16 @@ export const TopicQuestionsModal: React.FC<TopicQuestionsModalProps> = ({
           </div>
         </footer>
       </div>
+
+      <ConfirmDialog
+        isOpen={Boolean(pendingRemoveQuestionId)}
+        onClose={() => setPendingRemoveQuestionId(null)}
+        onConfirm={confirmRemoveQuestion}
+        title="Gỡ câu hỏi khỏi chủ đề"
+        message="Bạn có chắc chắn muốn bỏ câu hỏi này khỏi chủ đề bài học?"
+        confirmLabel="Gỡ khỏi chủ đề"
+        isDestructive={true}
+      />
     </div>
   );
 };

@@ -18,30 +18,49 @@ export const AppLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isDarkAssignmentWorkspace =
+  const isAssignmentWorkspace =
     location.pathname === '/teacher/assignments' ||
     (location.pathname.startsWith('/teacher/assignments/') &&
       !location.pathname.startsWith('/teacher/assignments/topics') &&
       !location.pathname.startsWith('/teacher/assignments/create') &&
       !location.pathname.startsWith('/teacher/assignments/new'));
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const canBrowseDirectory = role === 'teacher' || role === 'admin';
+
   // Filter global search results across entities based on query
   const queryLower = searchQuery.toLowerCase().trim();
-  const matchedStudents = queryLower
-    ? store.students.filter(
-        (s) =>
-          s.full_name.toLowerCase().includes(queryLower) ||
-          s.student_code.toLowerCase().includes(queryLower)
-      ).slice(0, 4)
-    : [];
+  const matchedStudents =
+    queryLower && canBrowseDirectory
+      ? store.students
+          .filter(
+            (s) =>
+              s.full_name.toLowerCase().includes(queryLower) ||
+              s.student_code.toLowerCase().includes(queryLower)
+          )
+          .slice(0, 4)
+      : [];
 
-  const matchedClasses = queryLower
-    ? store.classes.filter(
-        (c) =>
-          c.name.toLowerCase().includes(queryLower) ||
-          c.join_code.toLowerCase().includes(queryLower)
-      ).slice(0, 3)
-    : [];
+  const matchedClasses =
+    queryLower && canBrowseDirectory
+      ? store.classes
+          .filter(
+            (c) =>
+              c.name.toLowerCase().includes(queryLower) ||
+              c.join_code.toLowerCase().includes(queryLower)
+          )
+          .slice(0, 3)
+      : [];
 
   const matchedAssignments = queryLower
     ? store.assignments.filter((a) => a.title.toLowerCase().includes(queryLower)).slice(0, 3)
@@ -55,7 +74,7 @@ export const AppLayout: React.FC = () => {
     matchedStudents.length + matchedClasses.length + matchedAssignments.length + matchedAnnouncements.length;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 flex transition-colors duration-200">
       {/* Sidebar navigation */}
       <Sidebar
         mobileOpen={mobileSidebarOpen}
@@ -68,7 +87,7 @@ export const AppLayout: React.FC = () => {
         <div className="flex items-center">
           <button
             onClick={() => setMobileSidebarOpen(true)}
-            className="lg:hidden p-3 text-slate-600 hover:text-slate-900 focus:outline-hidden"
+            className="lg:hidden p-3 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white focus:outline-hidden"
             title="Mở menu"
           >
             <Menu className="w-6 h-6" />
@@ -85,12 +104,10 @@ export const AppLayout: React.FC = () => {
         {/* Page body */}
         <main
           className={`flex-1 w-full min-w-0 ${
-            isDarkAssignmentWorkspace
-              ? 'bg-[#00121F] text-slate-100 p-4 sm:p-5 lg:p-6'
-              : 'p-2 sm:p-3 lg:p-4'
+            isAssignmentWorkspace ? 'p-3 sm:p-4 lg:p-5' : 'p-2 sm:p-3 lg:p-4'
           }`}
         >
-          <Breadcrumb isDark={isDarkAssignmentWorkspace} />
+          <Breadcrumb />
           <Outlet />
         </main>
       </div>
@@ -115,7 +132,7 @@ export const AppLayout: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Nhập tên học sinh, mã số, tên lớp hoặc tiêu đề bài tập..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-hidden"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-hidden"
             />
           </div>
 
@@ -139,13 +156,13 @@ export const AppLayout: React.FC = () => {
                       setSearchOpen(false);
                       navigate(`/teacher/students/${s.id}`);
                     }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-blue-50 flex items-center justify-between text-sm transition-colors"
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-950/50 flex items-center justify-between text-sm transition-colors"
                   >
                     <div>
-                      <span className="font-semibold text-slate-800">{s.full_name}</span>
-                      <span className="text-xs text-slate-500 ml-2 font-mono">({s.student_code})</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-100">{s.full_name}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 ml-2 font-mono">({s.student_code})</span>
                     </div>
-                    <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                    <span className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md">
                       {s.class_name}
                     </span>
                   </button>
@@ -168,10 +185,10 @@ export const AppLayout: React.FC = () => {
                       setSearchOpen(false);
                       navigate(`/teacher/classes/${c.id}`);
                     }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50 flex items-center justify-between text-sm transition-colors"
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between text-sm transition-colors"
                   >
-                    <span className="font-semibold text-slate-800">{c.name}</span>
-                    <span className="text-xs text-slate-500 font-mono">Mã: {c.join_code}</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{c.name}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">Mã: {c.join_code}</span>
                   </button>
                 ))}
               </div>
@@ -190,12 +207,16 @@ export const AppLayout: React.FC = () => {
                     key={a.id}
                     onClick={() => {
                       setSearchOpen(false);
-                      navigate(`/teacher/assignments/${a.id}`);
+                      navigate(
+                        role === 'teacher' || role === 'admin'
+                          ? `/teacher/assignments/${a.id}`
+                          : `/${role}/assignments`
+                      );
                     }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-purple-50 flex items-center justify-between text-sm transition-colors"
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-950/50 flex items-center justify-between text-sm transition-colors"
                   >
-                    <span className="font-semibold text-slate-800 truncate">{a.title}</span>
-                    <span className="text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md ml-2 shrink-0">
+                    <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{a.title}</span>
+                    <span className="text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded-md ml-2 shrink-0">
                       {a.subject_name}
                     </span>
                   </button>
@@ -218,10 +239,10 @@ export const AppLayout: React.FC = () => {
                       setSearchOpen(false);
                       navigate(`/${role}/announcements`);
                     }}
-                    className="w-full text-left p-2.5 rounded-xl hover:bg-amber-50 flex items-center justify-between text-sm transition-colors"
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/50 flex items-center justify-between text-sm transition-colors"
                   >
-                    <span className="font-semibold text-slate-800 truncate">{anc.title}</span>
-                    <span className="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md ml-2 shrink-0">
+                    <span className="font-semibold text-slate-800 dark:text-slate-100 truncate">{anc.title}</span>
+                    <span className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-md ml-2 shrink-0">
                       {anc.priority}
                     </span>
                   </button>
@@ -244,20 +265,20 @@ export const AppLayout: React.FC = () => {
           {store.announcements.map((anc) => (
             <div
               key={anc.id}
-              className="p-3.5 bg-slate-50 hover:bg-blue-50/50 rounded-xl border border-slate-200/80 transition-all cursor-pointer"
+              className="p-3.5 bg-slate-50 dark:bg-slate-800/70 hover:bg-blue-50/50 dark:hover:bg-slate-800 rounded-xl border border-slate-200/80 dark:border-slate-700 transition-all cursor-pointer"
               onClick={() => {
                 setNotificationsOpen(false);
                 navigate(`/${role}/announcements`);
               }}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-blue-600">{anc.author_name}</span>
+                <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">{anc.author_name}</span>
                 <span className="text-[10px] text-slate-400">
                   {new Date(anc.created_at).toLocaleDateString('vi-VN')}
                 </span>
               </div>
-              <h4 className="text-sm font-semibold text-slate-900 mb-1">{anc.title}</h4>
-              <p className="text-xs text-slate-500 line-clamp-2">{anc.content}</p>
+              <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">{anc.title}</h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{anc.content}</p>
             </div>
           ))}
         </div>

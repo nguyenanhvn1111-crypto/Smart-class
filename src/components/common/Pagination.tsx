@@ -22,17 +22,17 @@ export const Pagination: React.FC<PaginationProps> = ({
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white border-t border-slate-100 rounded-b-2xl">
-      <div className="text-xs text-slate-500">
-        Hiển thị <span className="font-semibold text-slate-800">{startItem}</span> -{' '}
-        <span className="font-semibold text-slate-800">{endItem}</span> trên tổng số{' '}
-        <span className="font-semibold text-slate-800">{totalItems}</span>
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 rounded-b-2xl">
+      <div className="text-xs text-slate-500 dark:text-slate-400">
+        Hiển thị <span className="font-semibold text-slate-800 dark:text-slate-100">{startItem}</span> -{' '}
+        <span className="font-semibold text-slate-800 dark:text-slate-100">{endItem}</span> trên tổng số{' '}
+        <span className="font-semibold text-slate-800 dark:text-slate-100">{totalItems}</span>
       </div>
       <div className="flex items-center gap-1.5">
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           title="Trang trước"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -47,7 +47,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all ${
                 isCurrent
                   ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700'
               }`}
             >
               {page}
@@ -57,7 +57,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           title="Trang sau"
         >
           <ChevronRight className="w-4 h-4" />

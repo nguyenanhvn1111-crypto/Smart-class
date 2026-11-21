@@ -7,6 +7,7 @@ import { Tabs } from '../../components/common/Tabs';
 import { StatusChip } from '../../components/common/StatusChip';
 import { EmptyState } from '../../components/common/EmptyState';
 import { StudentProfileModal } from '../../components/student/StudentProfileModal';
+import { UserAvatar } from '../../components/common/UserAvatar';
 import {
   Users,
   CalendarCheck,
@@ -288,10 +289,10 @@ export const ClassDetail: React.FC = () => {
                   <td className="px-4 py-3 font-semibold text-slate-500">{idx + 1}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <img
-                        src={s.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                        alt={s.full_name}
-                        className="w-8 h-8 rounded-full object-cover"
+                      <UserAvatar
+                        src={s.avatar_url}
+                        name={s.full_name}
+                        className="w-8 h-8 rounded-full object-cover text-xs"
                       />
                       <div>
                         <p className="font-semibold text-slate-900">{s.full_name}</p>

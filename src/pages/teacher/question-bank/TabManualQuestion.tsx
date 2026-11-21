@@ -15,7 +15,8 @@ import {
   HelpCircle,
   FileText,
   Check,
-  RotateCcw
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 
 interface TabManualQuestionProps {
@@ -124,6 +125,7 @@ export const TabManualQuestion: React.FC<TabManualQuestionProps> = ({
   // Save states
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastSavedMessage, setLastSavedMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Close combobox on outside click
   useEffect(() => {
@@ -157,10 +159,22 @@ export const TabManualQuestion: React.FC<TabManualQuestionProps> = ({
 
   const removeOption = (idx: number) => {
     if (options.length <= 2) {
-      alert('Câu hỏi trắc nghiệm cần tối thiểu 2 phương án!');
+      setErrorMessage('Câu hỏi trắc nghiệm cần tối thiểu 2 phương án!');
       return;
     }
-    setOptions((prev) => prev.filter((_, i) => i !== idx));
+    setErrorMessage(null);
+    const removedId = options[idx]?.id;
+    const nextOptions = options.filter((_, i) => i !== idx);
+    setOptions(nextOptions);
+    if (removedId && singleCorrectAnswer === removedId && nextOptions.length > 0) {
+      setSingleCorrectAnswer(nextOptions[0].id);
+    }
+    if (removedId) {
+      setMultipleCorrectAnswers((prev) => {
+        const filtered = prev.filter((id) => id !== removedId);
+        return filtered.length > 0 ? filtered : nextOptions.length > 0 ? [nextOptions[0].id] : [];
+      });
+    }
   };
 
   const toggleMultipleChoiceAnswer = (id: string) => {
@@ -193,9 +207,10 @@ export const TabManualQuestion: React.FC<TabManualQuestionProps> = ({
 
   const removeStatement = (idx: number) => {
     if (statements.length <= 2) {
-      alert('Câu hỏi Đúng/Sai cần tối thiểu 2 mệnh đề!');
+      setErrorMessage('Câu hỏi Đúng/Sai cần tối thiểu 2 mệnh đề!');
       return;
     }
+    setErrorMessage(null);
     setStatements((prev) => prev.filter((_, i) => i !== idx));
   };
 
@@ -245,10 +260,11 @@ export const TabManualQuestion: React.FC<TabManualQuestionProps> = ({
   // Save handler
   const handleSave = async (continueCreating = false) => {
     if (!questionText.trim()) {
-      alert('Vui lòng nhập nội dung đề bài câu hỏi!');
+      setErrorMessage('Vui lòng nhập nội dung đề bài câu hỏi!');
       return;
     }
 
+    setErrorMessage(null);
     setIsSubmitting(true);
 
     const questionCode = `CH-${subject.slice(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
@@ -316,7 +332,7 @@ export const TabManualQuestion: React.FC<TabManualQuestionProps> = ({
         setMultipleCorrectAnswers(['A']);
       }
     } catch (e) {
-      alert('Không thể lưu câu hỏi. Vui lòng kiểm tra lại!');
+      setErrorMessage('Không thể lưu câu hỏi. Vui lòng kiểm tra lại!');
     } finally {
       setIsSubmitting(false);
     }
@@ -966,7 +982,15 @@ export const TabManualQuestion: React.FC<TabManualQuestionProps> = ({
           />
         </div>
 
-        {/* Success message banner */}
+        {/* Error / Success message banners */}
+        {errorMessage && (
+          <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-900 flex items-center justify-between">
+            <span className="flex items-center gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+              {errorMessage}
+            </span>
+          </div>
+        )}
         {lastSavedMessage && (
           <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 flex items-center justify-between">
             <span className="flex items-center gap-2 font-medium">

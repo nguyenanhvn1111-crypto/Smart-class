@@ -3,6 +3,7 @@ import { useClass } from '../../contexts/ClassContext';
 import { DataService } from '../../services/dataService';
 import { Student, BehaviorRecord, RewardBadge } from '../../types';
 import { Modal } from '../../components/common/Modal';
+import { UserAvatar } from '../../components/common/UserAvatar';
 import confetti from 'canvas-confetti';
 import {
   Award,
@@ -141,9 +142,9 @@ export const BehaviorPage: React.FC = () => {
             </div>
 
             <div className="mt-4 flex items-center gap-3">
-              <img
-                src={stu.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100'}
-                alt={stu.full_name}
+              <UserAvatar
+                src={stu.avatar_url}
+                name={stu.full_name}
                 className="w-12 h-12 rounded-full object-cover ring-2 ring-white"
               />
               <div>
